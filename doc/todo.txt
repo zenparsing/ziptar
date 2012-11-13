@@ -1,0 +1,28 @@
+== TODO ==
+
+- Formalized testing - don't make any changes to code until we have a more
+  formalized testing system.
+
+- Should we perform checks on file offsets, etc., before attempting reads?
+  Should we attempt to work with an invalid zip file or just bork (as now)?
+
+- Work on exported interface.  Options and really convenient functions.
+  How much should it just work?  It should be as easy as the OS GUI.
+
+- Case sensitivity.  Should we allow or disallow?  Right now we allow.
+
+- What happens if a required folder was not included in the central
+  directory?  Do we go ahead and create it, or do we fail?
+
+- There should be a set of options that will control things like whether
+  files are overwritten (or just newer ones).  Also buffer sizes.
+
+- Zip64 support?
+
+- A mechanism for reading the extra header bytes?  Support for Zip64 would
+  necessitate this.
+
+- Support for encrypted archives?  Probably not at this time.
+
+- Adding or removing files from an existing (open) archive.  This will involve
+  copying the compressed data instead of generating it.

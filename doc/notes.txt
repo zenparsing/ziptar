@@ -1,0 +1,28 @@
+== File Attributes ==
+
+Operating system file attributes are stored in the "attr" property of the 
+entry header.  This value only has meaning with respect to the originating
+file system.  The originating file system can be found in the lower byte
+of the "versionMadeBy" field in the entry header.
+
+TODO: How do we get the proper attributes on different systems?
+
+== Encryption ==
+
+TODO
+
+== Zip64 ==
+
+Basically, the size and offset fields defined in the ZIP specification are
+all 4-byte (32-bit) integers with a maximum value of 4294967295.  If the value
+to be stored is larger, then a 0xffffffff value will be stored in it's place
+and the correct value will be stored in a zip64 extension data structure.
+For file headers, that data is located in the "extra" field.  We'll need to be
+able to parse those extra fields.  For values in the end-of-central-directory,
+the correct values will be stored in a special zip64 end-of-central-directory
+structure which preceeds the end-of-central-directory proper.
+
+== Disk Spanning ==
+
+This going to be such a rarely used feature nowadays.  In fact, I think we can
+safely not support it.
