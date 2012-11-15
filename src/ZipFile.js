@@ -1,12 +1,12 @@
 import EndHeader from "EndHeader.js";
 import ZipEntry from "ZipEntry.js";
 import FileStream from "AsyncFS.js";
+import Promise from "Promise.js";
 
 import Path = "path";
-import Async = "AsyncFlow.js";
 import AFS = "AsyncFS.js";
 
-var BUFFER_SIZE = 8 * 1024;
+const BUFFER_SIZE = 8 * 1024;
 
 
 function dirname(path) {
@@ -17,7 +17,7 @@ function dirname(path) {
 // Creates a directory, if it doesn't already exist
 function createDirectory(path) {
 
-    return AFS.stat(path).then((stat, err) => {
+    return AFS.stat(path).then(null, err => null).then(stat => {
     
         // Verify that destination is not something other than a directory
         if (stat && !stat.isDirectory())
@@ -152,7 +152,7 @@ export class ZipFile {
         
         list = list.map(path => this.addFile(path, dest));
         
-        return Async.whenAll(list).then(val => this);
+        return Promise.whenAll(list).then(val => this);
     }
     
     write(dest) {

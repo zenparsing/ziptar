@@ -1,6 +1,6 @@
 import FS = "fs";
 
-import { defer, when } from "AsyncFlow.js";
+import Promise from "Promise.js";
 
 // Wraps a standard Node async function with a promise
 // generating function
@@ -9,18 +9,18 @@ function wrap(obj, name) {
 	return function() {
 	
 		var a = [].slice.call(arguments, 0),
-			d = defer();
+			promise = new Promise;
 		
 		a.push(function(err, data) {
 		
-			if (err) d.reject(err);
-			else d.resolve(data);
+			if (err) promise.reject(err);
+			else promise.resolve(data);
 		});
 		
 		if (name) obj[name].apply(obj, a);
     	else obj.apply(null, a);
 		
-		return d.promise;
+		return promise.future;
 	};
 }
 
@@ -74,7 +74,9 @@ export class FileStream {
         if (this.file)
             throw new Error("File already open.");
         
-        return stat(path).then((info, err) => {
+        return stat(path)
+        .then(null, err => null)
+        .then(info => {
         
             if (info && !info.isFile())
                 throw new Error("File not found.");
@@ -99,7 +101,7 @@ export class FileStream {
             return close(fd);
         }
         
-        return when(null);
+        return Promise.when(null);
     }
 
     end() {

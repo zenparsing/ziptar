@@ -1,7 +1,6 @@
 import { EventTarget, Event } from "EventTarget.js";
-
+import Promise from "Promise.js";
 import ZLib = "zlib";
-import Async = "AsyncFlow.js";
 
 class DataEvent extends Event {
 
@@ -27,7 +26,7 @@ class ZipStream extends EventTarget {
         var async = this._async();
         
         this.zlib.write(buffer, async.callback);
-        return async.promise;
+        return async.future;
     }
     
     end() {
@@ -35,13 +34,13 @@ class ZipStream extends EventTarget {
         var async = this._async();
         
         this.zlib.end(null, async.callback);
-        return async.promise;
+        return async.future;
     }
     
     _async() {
     
-        var async = Async.defer(),
-            onErr = err => { async.reject(err); };
+        var promise = new Promise,
+            onErr = err => { promise.reject(err); };
         
         this.zlib.on("error", onErr);
         
@@ -50,10 +49,10 @@ class ZipStream extends EventTarget {
             callback: () => {
         
                 this.zlib.removeListener("error", onErr);
-                async.resolve(null);
+                promise.resolve(null);
             },
             
-            promise: async.promise
+            future: promise.future
             
         };
     }
@@ -87,7 +86,7 @@ export class NullStream extends EventTarget {
         if (data)
             this.dispatchEvent(new DataEvent(data));
         
-        return Async.when(null);
+        return Promise.when(null);
     }
     
     end() {

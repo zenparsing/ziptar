@@ -2,7 +2,6 @@ import DataHeader from "DataHeader.js";
 import DataDescriptor from "DataDescriptor.js";
 import EntryHeader from "EntryHeader.js";
 import Crc32 from "Tools.js";
-import defer from "AsyncFlow.js";
 import BufferWriter from "BufferWriter.js";
 import { InflateStream, DeflateStream, NullStream } from "ZipStream.js";
 
@@ -204,8 +203,7 @@ export class ZipEntry {
         if (this.isDirectory)
             throw new Error("Entry is not a file");
         
-        var deferred = defer(),
-            abort = false,
+        var abort = false,
             zipStream,
             crc;
         
