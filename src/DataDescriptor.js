@@ -27,7 +27,7 @@ export var DataDescriptor = {
     
     toBuffer(fields) {
     
-        data = new Buffer(EXTHDR);
+        var data = new Buffer(EXTHDR);
         
         data.writeUInt32LE(EXTSIG, 0);
         data.writeUInt32LE(fields.crc32, EXTCRC);

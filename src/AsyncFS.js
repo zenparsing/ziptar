@@ -1,4 +1,4 @@
-import FS = "fs";
+module FS = "fs";
 
 import Promise from "Promise.js";
 

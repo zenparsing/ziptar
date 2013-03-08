@@ -6,8 +6,7 @@
 - Should we perform checks on file offsets, etc., before attempting reads?
   Should we attempt to work with an invalid zip file or just bork (as now)?
 
-- Work on exported interface.  Options and really convenient functions.
-  How much should it just work?  It should be as easy as the OS GUI.
+- It would be a good idea to analyze memory usage.
 
 - Case sensitivity.  Should we allow or disallow?  Right now we allow.
 

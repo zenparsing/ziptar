@@ -1,3 +1,4 @@
+import Promise from "Promise.js";
 import DataHeader from "DataHeader.js";
 import DataDescriptor from "DataDescriptor.js";
 import EntryHeader from "EntryHeader.js";
@@ -5,8 +6,8 @@ import Crc32 from "Tools.js";
 import BufferWriter from "BufferWriter.js";
 import { InflateStream, DeflateStream, NullStream } from "ZipStream.js";
 
-import FS = "fs";
-import ZLib = "zlib";
+module FS = "fs";
+module ZLib = "zlib";
 
 
 var STORED = 0,
@@ -53,7 +54,7 @@ export class ZipEntry {
     readHeader(buffer) {
     
         // Read the fixed-size portion of the header
-        var header = EntryHeader.fromBuffer(buffer);
+        var header = EntryHeader.fromBuffer(buffer),
             offset = EntryHeader.LENGTH;
         
         // Set entry fields
@@ -160,33 +161,34 @@ export class ZipEntry {
             outStream.write(temp);
         });
         
-        // Set up the read loop
-        var next = () => {
-        
-            return inStream.read(buffer).then(count => {
-                
-                // Stop loop if no more input is found
-                if (count === 0)
-                    return zipStream.end();
-                
-                var data = buffer.slice(0, count);
-                
-                // Accumulate data for the raw input
-                crc.accumulate(data);
-                size += count;
-                
-                // Write data into compression stream
-                return zipStream.write(data).then(next);
-            });
-        };
-        
         // Store the output position
         this.offset = outStream.position;
         
         // Write the data header and start the read loop
-        return outStream.write(this.packDataHeader())
-          .then(next)
-          .then(val => {
+        return outStream.write(this.packDataHeader()).then(val => {
+        
+            // Begin the read loop
+            return Promise.iterate(stop => {
+            
+                // Read into the buffer
+                return inStream.read(buffer).then(count => {
+                    
+                    // Stop loop if no more input is found
+                    if (count === 0)
+                        return stop(zipStream.end());
+                    
+                    var data = buffer.slice(0, count);
+                    
+                    // Accumulate data for the raw input
+                    crc.accumulate(data);
+                    size += count;
+                    
+                    // Write data into compression stream
+                    return zipStream.write(data);
+                });
+            });
+          
+        }).then(val => {
         
             // Set entry data
             this.crc32 = crc.value;
@@ -254,12 +256,11 @@ export class ZipEntry {
             
             // === Decompress Data ==
             
-            var end = fileStream.position + this.compressedSize,
-                length;
+            var end = fileStream.position + this.compressedSize;
             
-            var next = () => {
-
-                length = Math.min(buffer.length, end - fileStream.position);
+            return Promise.iterate(stop => {
+            
+                var length = Math.min(buffer.length, end - fileStream.position);
                 
                 // Read the next chunk
                 return fileStream.read(buffer, 0, length).then(count => {
@@ -268,14 +269,12 @@ export class ZipEntry {
                     return zipStream.write(buffer.slice(0, count)).then(data => {
                     
                         if (fileStream.position >= end)
-                            return zipStream.end();
+                            return stop(zipStream.end());
                         
-                        return next();
+                        return data;
                     });
                 });
-            };
-            
-            return next();
+            });
             
         }).then(val => {
         

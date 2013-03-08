@@ -1,6 +1,7 @@
 import { EventTarget, Event } from "EventTarget.js";
 import Promise from "Promise.js";
-import ZLib = "zlib";
+
+module ZLib = "zlib";
 
 class DataEvent extends Event {
 
@@ -13,11 +14,11 @@ class DataEvent extends Event {
 
 class ZipStream extends EventTarget {
 
-    constructor(deflate) {
+    constructor(mode) {
     
         super();
         
-        this.zlib = deflate ? ZLib.createDeflateRaw() : ZLib.createInflateRaw();
+        this.zlib = mode === "deflate" ? ZLib.createDeflateRaw() : ZLib.createInflateRaw();
         this.zlib.on("data", data => this.dispatchEvent(new DataEvent(data)));
     }
     
@@ -62,7 +63,7 @@ export class InflateStream extends ZipStream {
 
     constructor() {
     
-        super(false);
+        super("inflate");
     }
 }
 
@@ -70,7 +71,7 @@ export class DeflateStream extends ZipStream {
 
     constructor() {
     
-        super(true);
+        super("deflate");
     }
 }
 

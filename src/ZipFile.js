@@ -3,11 +3,10 @@ import ZipEntry from "ZipEntry.js";
 import FileStream from "AsyncFS.js";
 import Promise from "Promise.js";
 
-import Path = "path";
-import AFS = "AsyncFS.js";
+module Path = "path";
+module AFS = "AsyncFS.js";
 
-const BUFFER_SIZE = 8 * 1024;
-
+var BUFFER_SIZE = 8 * 1024;
 
 function dirname(path) {
 
@@ -109,6 +108,7 @@ export class ZipFile {
     
     addFile(path, dest) {
     
+        path = Path.resolve(path);
         dest = this._destination(dest);
         
         return AFS.stat(path).then(stat => {
@@ -157,6 +157,8 @@ export class ZipFile {
     
     write(dest) {
     
+        dest = Path.resolve(dest);
+        
         // Sort entries so that already compressed entries come first 
         var list = this.getEntryNames().sort((a, b) => {
         
@@ -175,23 +177,18 @@ export class ZipFile {
                 queue = list.slice(0);
             
             // Compress all files
-            var writeData = () => {
+            return Promise.forEach(queue, entryName => {
             
-                if (queue.length === 0)
-                    return;
-                
-                var entry = this.getEntry(queue.shift());
+                var entry = this.getEntry(entryName);
                 
                 if (entry.isDirectory)
-                    return outStream.write(entry.packDataHeader()).then(writeData);
+                    return outStream.write(entry.packDataHeader());
                 
                 return new FileStream()
                     .open(entry.source)
-                    .then(inStream => entry.compress(inStream, outStream, buffer))
-                    .then(writeData);
-            };
+                    .then(inStream => entry.compress(inStream, outStream, buffer));
             
-            return writeData().then(val => {
+            }).then(val => {
             
                 var start = outStream.position;
                 
@@ -232,6 +229,8 @@ export class ZipFile {
     
     extractDirectory(name, dest) {
     
+        dest = Path.resolve(dest);
+        
         this._assertOpen();
         
         var buffer = this._createBuffer(),
@@ -258,34 +257,31 @@ export class ZipFile {
         // Create the directory
         return createDirectory(dest).then(value => {
         
-            var next = () => {
+            return Promise.forEach(names, entryName => {
             
-                if (names.length === 0)
-                    return;
-                
-                var entryName = names.shift(),
-                    entry = this.getEntry(entryName),
+                var entry = this.getEntry(entryName),
                     outName = Path.join(dest, entryName.slice(name.length));
                 
                 if (entry.isDirectory) {
                 
                     // Create the directory
-                    return createDirectory(outName).then(next);
+                    return createDirectory(outName);
                     
                 } else {
                 
                     // Create the output file
-                    return this.extractFile(entry.name, outName, buffer).then(next);
+                    return this.extractFile(entry.name, outName, buffer);
                 }
-            };
-            
-            return next();
+                
+            });
         
         }).then(val => this);
     }
     
     extractFile(name, dest, buffer) {
     
+        dest = Path.resolve(dest);
+        
         this._assertOpen();
         
         var entry = this.getEntry(name),
@@ -302,6 +298,8 @@ export class ZipFile {
     // Opens a zip file and reads the central directory
     open(path) {
     
+        path = Path.resolve(path);
+        
         var file = this.fileStream,
             endOffset;
         
