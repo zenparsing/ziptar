@@ -1,7 +1,6 @@
-import { EventTarget, Event } from "EventTarget.js";
-import Promise from "Promise.js";
+module ZLib from "node:zlib";
 
-module ZLib = "zlib";
+import { EventTarget, Event } from "EventTarget.js";
 
 class DataEvent extends Event {
 
@@ -18,8 +17,17 @@ class ZipStream extends EventTarget {
     
         super();
         
-        this.zlib = mode === "deflate" ? ZLib.createDeflateRaw() : ZLib.createInflateRaw();
-        this.zlib.on("data", data => this.dispatchEvent(new DataEvent(data)));
+        this.zlib = mode === "deflate" ? 
+            ZLib.createDeflateRaw() :
+            ZLib.createInflateRaw();
+        
+        this.zlib.on("data", data => {
+        
+            //var data = this.zlib.read();
+            
+            if (data !== null)
+                this.dispatchEvent(new DataEvent(data)); 
+        });
     }
     
     write(buffer) {
@@ -27,21 +35,24 @@ class ZipStream extends EventTarget {
         var async = this._async();
         
         this.zlib.write(buffer, async.callback);
-        return async.future;
+        return async.promise;
     }
     
     end() {
 
         var async = this._async();
         
-        this.zlib.end(null, async.callback);
-        return async.future;
+        this.zlib.on("end", async.callback);
+        this.zlib.end();
+        
+        return async.promise;
     }
     
     _async() {
     
-        var promise = new Promise,
-            onErr = err => { promise.reject(err); };
+        var resolver,
+            promise = new Promise((resolve, reject) => resolver = { resolve, reject }),
+            onErr = err => resolver.reject(err);
         
         this.zlib.on("error", onErr);
         
@@ -50,10 +61,10 @@ class ZipStream extends EventTarget {
             callback: () => {
         
                 this.zlib.removeListener("error", onErr);
-                promise.resolve(null);
+                resolver.resolve(null);
             },
             
-            future: promise.future
+            promise
             
         };
     }
@@ -87,7 +98,7 @@ export class NullStream extends EventTarget {
         if (data)
             this.dispatchEvent(new DataEvent(data));
         
-        return Promise.when(null);
+        return Promise.resolve(null);
     }
     
     end() {

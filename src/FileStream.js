@@ -1,63 +1,4 @@
-module FS = "fs";
-
-import Promise from "Promise.js";
-
-// Wraps a standard Node async function with a promise
-// generating function
-function wrap(obj, name) {
-
-	return function() {
-	
-		var a = [].slice.call(arguments, 0),
-			promise = new Promise;
-		
-		a.push(function(err, data) {
-		
-			if (err) promise.reject(err);
-			else promise.resolve(data);
-		});
-		
-		if (name) obj[name].apply(obj, a);
-    	else obj.apply(null, a);
-		
-		return promise.future;
-	};
-}
-
-export var 
-    exists = wrap(FS.exists),
-    readFile = wrap(FS.readFile),
-    close = wrap(FS.close),
-    open = wrap(FS.open),
-    read = wrap(FS.read),
-    write = wrap(FS.write),
-    rename = wrap(FS.rename),
-    truncate = wrap(FS.truncate),
-    rmdir = wrap(FS.rmdir),
-    fsync = wrap(FS.fsync),
-    mkdir = wrap(FS.mkdir),
-    sendfile = wrap(FS.sendfile),
-    readdir = wrap(FS.readdir),
-    fstat = wrap(FS.fstat),
-    lstat = wrap(FS.lstat),
-    stat = wrap(FS.stat),
-    readlink = wrap(FS.readlink),
-    symlink = wrap(FS.symlink),
-    link = wrap(FS.link),
-    unlink = wrap(FS.unlink),
-    fchmod = wrap(FS.fchmod),
-    lchmod = wrap(FS.lchmod),
-    chmod = wrap(FS.chmod),
-    lchown = wrap(FS.lchown),
-    fchown = wrap(FS.fchown),
-    chown = wrap(FS.chown),
-    utimes = wrap(FS.utimes),
-    futimes = wrap(FS.futimes),
-    writeFile = wrap(FS.writeFile),
-    appendFile = wrap(FS.appendFile),
-    realpath = wrap(FS.realpath)
-;
-
+import { AsyncFS } from "package:zen-bits";
 
 export class FileStream {
 
@@ -74,14 +15,14 @@ export class FileStream {
         if (this.file)
             throw new Error("File already open.");
         
-        return stat(path)
+        return AsyncFS.stat(path)
         .then(null, err => null)
         .then(info => {
         
             if (info && !info.isFile())
                 throw new Error("File not found.");
             
-            return open(path, flags || "r", mode).then(fd => { 
+            return AsyncFS.open(path, flags || "r", mode).then(fd => { 
             
                 this.file = fd;
                 this.path = path;
@@ -98,10 +39,10 @@ export class FileStream {
         
             var fd = this.file;
             this.file = 0;
-            return close(fd);
+            return AsyncFS.close(fd);
         }
         
-        return Promise.when(null);
+        return Promise.resolve(null);
     }
 
     end() {
@@ -125,7 +66,7 @@ export class FileStream {
         var offset = this.position;
         this.position = Math.min(this.size, this.position + length);
         
-        return read(this.file, buffer, start, length, offset);
+        return AsyncFS.read(this.file, buffer, start, length, offset);
     }
     
     write(buffer, start, length) {
@@ -142,7 +83,7 @@ export class FileStream {
         // resolved, then we're going to need to queue buffers.  Or does 
         // fs.write queue internally???
         
-        return write(this.file, buffer, start, length, offset);
+        return AsyncFS.write(this.file, buffer, start, length, offset);
     }
     
     seek(offset) {

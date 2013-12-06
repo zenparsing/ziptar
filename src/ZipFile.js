@@ -1,10 +1,9 @@
-import EndHeader from "EndHeader.js";
-import ZipEntry from "ZipEntry.js";
-import FileStream from "AsyncFS.js";
-import Promise from "Promise.js";
+module Path from "node:path";
 
-module Path = "path";
-module AFS = "AsyncFS.js";
+import { AsyncFS, PromiseExtensions } from "package:zen-bits";
+import { EndHeader } from "EndHeader.js";
+import { ZipEntry } from "ZipEntry.js";
+import { FileStream } from "FileStream.js";
 
 var BUFFER_SIZE = 8 * 1024;
 
@@ -16,7 +15,7 @@ function dirname(path) {
 // Creates a directory, if it doesn't already exist
 function createDirectory(path) {
 
-    return AFS.stat(path).then(null, err => null).then(stat => {
+    return AsyncFS.stat(path).then(null, err => null).then(stat => {
     
         // Verify that destination is not something other than a directory
         if (stat && !stat.isDirectory())
@@ -24,7 +23,7 @@ function createDirectory(path) {
         
         // Create directory if necessary
         if (!stat)
-            return AFS.mkdir(path).then(value => null);
+            return AsyncFS.mkdir(path).then(value => null);
         
         return null;
     });
@@ -111,7 +110,7 @@ export class ZipFile {
         path = Path.resolve(path);
         dest = this._destination(dest);
         
-        return AFS.stat(path).then(stat => {
+        return AsyncFS.stat(path).then(stat => {
             
             var base = Path.basename(path),
                 isDir = stat.isDirectory(),
@@ -128,7 +127,7 @@ export class ZipFile {
             
             if (isDir) {
             
-                return AFS.readdir(path).then(list => {
+                return AsyncFS.readdir(path).then(list => {
                 
                     list = list
                         .filter(item => item !== ".." && item !== ".")
@@ -152,7 +151,7 @@ export class ZipFile {
         
         list = list.map(path => this.addFile(path, dest));
         
-        return Promise.whenAll(list).then(val => this);
+        return Promise.all(list).then(val => this);
     }
     
     write(dest) {
@@ -177,7 +176,7 @@ export class ZipFile {
                 queue = list.slice(0);
             
             // Compress all files
-            return Promise.forEach(queue, entryName => {
+            return PromiseExtensions.forEach(queue, entryName => {
             
                 var entry = this.getEntry(entryName);
                 
@@ -257,7 +256,7 @@ export class ZipFile {
         // Create the directory
         return createDirectory(dest).then(value => {
         
-            return Promise.forEach(names, entryName => {
+            return PromiseExtensions.forEach(names, entryName => {
             
                 var entry = this.getEntry(entryName),
                     outName = Path.join(dest, entryName.slice(name.length));
@@ -291,7 +290,7 @@ export class ZipFile {
         return outStream
             .open(dest, "w")
             .then(val => entry.extract(this.fileStream, outStream, buffer))
-            .then(val => AFS.utimes(dest, new Date(), entry.lastModified))
+            .then(val => AsyncFS.utimes(dest, new Date(), entry.lastModified))
             .then(val => this);
     }
     

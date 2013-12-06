@@ -1,6 +1,5 @@
-import ZipFile from "ZipFile.js";
-
-export ZipFile;
+import { ZipFile } from "ZipFile.js";
+export { ZipFile };
 
 export * from "ZipEntry.js";
 

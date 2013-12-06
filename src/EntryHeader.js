@@ -1,4 +1,4 @@
-import { fromZipTime, toZipTime } from "Tools.js";
+import { fromZipTime, toZipTime } from "Utilities.js";
 
 var CENHDR = 46, // CEN header size
     CENSIG = 0x02014b50, // "PK\001\002"

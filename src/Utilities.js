@@ -34,31 +34,32 @@ export class Crc32 {
         
         return crc;
     }
-}
-
-Crc32.TABLE = null;
-
-Crc32.calculate = buffer => new Crc32(buffer).value;
-
-Crc32.createTable = () => {
-
-    var table = [], n, k, c;
     
-    for (n = 0; n < 256; n++) {
-        
-        c = n;
-        
-        for (k = 8; --k >= 0;)
-            c = (c & 1) != 0 ? 0xedb88320 ^ (c >>> 1) : c = c >>> 1;
-        
-        if (c < 0) // Reinterpret as unsigned int
-            c = 0xffffffff + c + 1;
-        
-        table[n] = c;
+    static calculate(buffer) { 
+    
+        return new Crc32(buffer).value;
     }
     
-    return table;
-};
+    static createTable() {
+    
+        var table = [], n, k, c;
+    
+        for (n = 0; n < 256; n++) {
+        
+            c = n;
+        
+            for (k = 8; --k >= 0;)
+                c = (c & 1) != 0 ? 0xedb88320 ^ (c >>> 1) : c = c >>> 1;
+        
+            if (c < 0) // Reinterpret as unsigned int
+                c = 0xffffffff + c + 1;
+        
+            table[n] = c;
+        }
+    
+        return table;
+    }
+}
 
 // == MS-DOS Date/Time Value Conversions ==
 

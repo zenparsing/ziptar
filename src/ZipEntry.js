@@ -1,14 +1,12 @@
-import Promise from "Promise.js";
-import DataHeader from "DataHeader.js";
-import DataDescriptor from "DataDescriptor.js";
-import EntryHeader from "EntryHeader.js";
-import Crc32 from "Tools.js";
-import BufferWriter from "BufferWriter.js";
+module FS from "node:fs";
+
+import { PromiseExtensions } from "package:zen-bits";
+import { DataHeader } from "DataHeader.js";
+import { DataDescriptor } from "DataDescriptor.js";
+import { EntryHeader } from "EntryHeader.js";
+import { Crc32 } from "Utilities.js";
+import { BufferWriter } from "BufferWriter.js";
 import { InflateStream, DeflateStream, NullStream } from "ZipStream.js";
-
-module FS = "fs";
-module ZLib = "zlib";
-
 
 var STORED = 0,
     DEFLATED = 8,
@@ -168,7 +166,7 @@ export class ZipEntry {
         return outStream.write(this.packDataHeader()).then(val => {
         
             // Begin the read loop
-            return Promise.iterate(stop => {
+            return PromiseExtensions.iterate(stop => {
             
                 // Read into the buffer
                 return inStream.read(buffer).then(count => {
@@ -258,7 +256,7 @@ export class ZipEntry {
             
             var end = fileStream.position + this.compressedSize;
             
-            return Promise.iterate(stop => {
+            return PromiseExtensions.iterate(stop => {
             
                 var length = Math.min(buffer.length, end - fileStream.position);
                 

@@ -1,5 +1,3 @@
-"use strict";
-
 /*
 
 This EventTarget implementation differs from DOM3 EventTargets in the following
