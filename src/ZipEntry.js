@@ -163,7 +163,7 @@ export class ZipEntry {
         this.offset = outStream.position;
         
         // Write the data header and start the read loop
-        return outStream.write(this.packDataHeader()).then(val => {
+        return outStream.write(this.packDataHeader()).then($=> {
         
             // Begin the read loop
             return PromiseExtensions.iterate(stop => {
@@ -186,7 +186,7 @@ export class ZipEntry {
                 });
             });
           
-        }).then(val => {
+        }).then($=> {
         
             // Set entry data
             this.crc32 = crc.value;
@@ -194,7 +194,7 @@ export class ZipEntry {
             this.size = size;
             
             // Write the data descriptor
-            return outStream.write(this.packDataDescriptor()).then(val => this);
+            return outStream.write(this.packDataDescriptor()).then($=> this);
         });
     }
     
@@ -250,7 +250,7 @@ export class ZipEntry {
                 outStream.write(temp);
             });
             
-        }).then(val => {
+        }).then($=> {
             
             // === Decompress Data ==
             
@@ -274,7 +274,7 @@ export class ZipEntry {
                 });
             });
             
-        }).then(val => {
+        }).then($=> {
         
             // === Finalize ===
             
@@ -283,7 +283,7 @@ export class ZipEntry {
                 throw new Error("CRC-32 check failed.");
             
             // Close the output stream
-            return outStream.end().then(val => this);
+            return outStream.end().then($=> this);
         });
     }
     

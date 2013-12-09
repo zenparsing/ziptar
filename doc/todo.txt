@@ -1,5 +1,10 @@
 == TODO ==
 
+- Getting EMFILE errors when doing massive work.  This means that node is
+  opening up too many files at one time.  It might require that we respond
+  to EMFILE errors by waiting and retrying the operation.  Have a look at
+  graceful-fs.
+
 - Formalized testing - don't make any changes to code until we have a more
   formalized testing system.
 

@@ -151,7 +151,7 @@ export class ZipFile {
         
         list = list.map(path => this.addFile(path, dest));
         
-        return Promise.all(list).then(val => this);
+        return Promise.all(list).then($=> this);
     }
     
     write(dest) {
@@ -183,11 +183,16 @@ export class ZipFile {
                 if (entry.isDirectory)
                     return outStream.write(entry.packDataHeader());
                 
-                return new FileStream()
-                    .open(entry.source)
-                    .then(inStream => entry.compress(inStream, outStream, buffer));
+                if (entry.source === dest)
+                    throw new Error("Cannot compress the destination file.");
+                    
+                var file = new FileStream();
+                
+                return file.open(entry.source)
+                    .then(inStream => entry.compress(inStream, outStream, buffer))
+                    .then($=> file.close());
             
-            }).then(val => {
+            }).then($=> {
             
                 var start = outStream.position;
                 
@@ -213,12 +218,12 @@ export class ZipFile {
                 return outStream.write(endHeader);
             });
             
-        }).then(val => this);
+        }).then($=> this);
     }
     
     close() {
     
-        return this.fileStream.close().then(val => this);
+        return this.fileStream.close().then($=> this);
     }
     
     extractAll(dest) {
@@ -274,7 +279,7 @@ export class ZipFile {
                 
             });
         
-        }).then(val => this);
+        }).then($=> this);
     }
     
     extractFile(name, dest, buffer) {
@@ -289,9 +294,10 @@ export class ZipFile {
         
         return outStream
             .open(dest, "w")
-            .then(val => entry.extract(this.fileStream, outStream, buffer))
-            .then(val => AsyncFS.utimes(dest, new Date(), entry.lastModified))
-            .then(val => this);
+            .then($=> entry.extract(this.fileStream, outStream, buffer))
+            .then($=> outStream.close())
+            .then($=> AsyncFS.utimes(dest, new Date(), entry.lastModified))
+            .then($=> this);
     }
     
     // Opens a zip file and reads the central directory
@@ -302,7 +308,7 @@ export class ZipFile {
         var file = this.fileStream,
             endOffset;
         
-        return file.open(path).then(val => {
+        return file.open(path).then($=> {
             
             // === Read the Index Header ===
             
