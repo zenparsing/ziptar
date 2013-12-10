@@ -185,7 +185,7 @@ export class ZipFile {
                 
                 if (entry.source === dest)
                     throw new Error("Cannot compress the destination file.");
-                    
+                
                 var file = new FileStream();
                 
                 return file.open(entry.source)

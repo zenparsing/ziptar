@@ -1,18 +1,11 @@
 == TODO ==
 
-- Getting EMFILE errors when doing massive work.  This means that node is
-  opening up too many files at one time.  It might require that we respond
-  to EMFILE errors by waiting and retrying the operation.  Have a look at
-  graceful-fs.
-
-- Formalized testing - don't make any changes to code until we have a more
-  formalized testing system.
+- Minimize memory usage.  We are using way more memory than is needed.  What
+  portion of the code is generating unbounded memory allocations?
 
 - Should we perform checks on file offsets, etc., before attempting reads?
   Should we attempt to work with an invalid zip file or just bork (as now)?
-
-- It would be a good idea to analyze memory usage.
-
+  
 - Case sensitivity.  Should we allow or disallow?  Right now we allow.
 
 - What happens if a required folder was not included in the central

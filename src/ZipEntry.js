@@ -153,10 +153,7 @@ export class ZipEntry {
             // Accumulate data for the compressed output
             compressed += data.length;
             
-            var temp = new Buffer(data.length);
-            data.copy(temp);
-            
-            outStream.write(temp);
+            outStream.write(data);
         });
         
         // Store the output position
@@ -244,10 +241,7 @@ export class ZipEntry {
                 if (crc) 
                     crc.accumulate(event.data);
                 
-                var temp = new Buffer(event.data.length);
-                event.data.copy(temp);
-                
-                outStream.write(temp);
+                outStream.write(event.data);
             });
             
         }).then($=> {
