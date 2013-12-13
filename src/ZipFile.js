@@ -5,7 +5,7 @@ import { EndHeader } from "EndHeader.js";
 import { ZipEntry } from "ZipEntry.js";
 import { FileStream } from "FileStream.js";
 
-var BUFFER_SIZE = 8 * 1024;
+var BUFFER_SIZE = 16 * 1024;
 
 function dirname(path) {
 
