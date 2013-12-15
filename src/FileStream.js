@@ -10,39 +10,39 @@ export class FileStream {
         this.size = 0;
     }
 
-    open(path, flags, mode) {
+    async open(path, flags, mode) {
     
         if (this.file)
             throw new Error("File already open.");
         
-        return AsyncFS.stat(path)
-        .then(null, err => null)
-        .then(info => {
+        var info;
         
-            if (info && !info.isFile())
-                throw new Error("File not found.");
-            
-            return AsyncFS.open(path, flags || "r", mode).then(fd => { 
-            
-                this.file = fd;
-                this.path = path;
-                this.size = info ? info.size : 0;
-            
-                return this;
-            });
-        });
+        try { info = await AsyncFS.stat(path) }
+        catch (x) {}
+        
+        if (info && !info.isFile())
+            throw new Error("File not found.");
+        
+        var fd = await AsyncFS.open(path, flags || "r", mode);
+        
+        this.file = fd;
+        this.path = path;
+        this.size = info ? info.size : 0;
+        
+        return this;
     }
     
-    close() {
+    async close() {
     
         if (this.file) {
         
             var fd = this.file;
             this.file = 0;
-            return AsyncFS.close(fd);
+            
+            return await AsyncFS.close(fd);
         }
         
-        return Promise.resolve(null);
+        return null;
     }
 
     end() {
@@ -50,13 +50,15 @@ export class FileStream {
         return this.close();
     }
     
-    readBytes(count) {
+    async readBytes(count) {
     
         var buffer = new Buffer(count);
-        return this.read(buffer, 0, count).then(bytes => bytes < count ? buffer.slice(0, bytes) : buffer);
+        var bytes = await this.read(buffer, 0, count);
+        
+        return bytes < count ? buffer.slice(0, bytes) : buffer;
     }
     
-    read(buffer, start, length) {
+    async read(buffer, start, length) {
     
         this._assertOpen();
         
@@ -66,10 +68,10 @@ export class FileStream {
         var offset = this.position;
         this.position = Math.min(this.size, this.position + length);
         
-        return AsyncFS.read(this.file, buffer, start, length, offset);
+        return await AsyncFS.read(this.file, buffer, start, length, offset);
     }
     
-    write(buffer, start, length) {
+    async write(buffer, start, length) {
     
         this._assertOpen();
         
@@ -83,7 +85,7 @@ export class FileStream {
         // resolved, then we're going to need to queue buffers.  Or does 
         // fs.write queue internally???
         
-        return AsyncFS.write(this.file, buffer, start, length, offset);
+        return await AsyncFS.write(this.file, buffer, start, length, offset);
     }
     
     seek(offset) {

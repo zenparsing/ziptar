@@ -1,9 +1,8 @@
 import { zip, unzip } from "../src/main.js";
 
-export function main() {
+export async main() {
 
-    return zip("./", "test/_temp/src.zip").then($=> {
+    await zip("./src", "test/_temp/src.zip");
+    await unzip("test/_temp/src.zip", "test/_temp");
     
-        return unzip("test/_temp/src.zip", "test/_temp");
-    });
 }
