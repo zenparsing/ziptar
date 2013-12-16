@@ -1,6 +1,5 @@
 module FS from "node:fs";
 
-import { PromiseExtensions } from "package:zen-bits";
 import { DataHeader } from "DataHeader.js";
 import { DataDescriptor } from "DataDescriptor.js";
 import { EntryHeader } from "EntryHeader.js";
@@ -120,7 +119,7 @@ export class ZipEntry {
         return DataDescriptor.toBuffer(this);
     }
     
-    compress(inStream, outStream, buffer) {
+    async compress(inStream, outStream, buffer) {
     
         if (this.isDirectory)
             throw new Error("Entry is not a file");
@@ -153,132 +152,112 @@ export class ZipEntry {
             // Accumulate data for the compressed output
             compressed += data.length;
             
-            outStream.write(data);
+            await outStream.write(data);
         });
         
         // Store the output position
         this.offset = outStream.position;
         
-        // Write the data header and start the read loop
-        return outStream.write(this.packDataHeader()).then($=> {
+        // Write the data header
+        await outStream.write(this.packDataHeader());
         
-            // Begin the read loop
-            return PromiseExtensions.iterate(stop => {
-            
-                // Read into the buffer
-                return inStream.read(buffer).then(count => {
-                    
-                    // Stop loop if no more input is found
-                    if (count === 0)
-                        return stop(zipStream.end());
-                    
-                    var data = buffer.slice(0, count);
-                    
-                    // Accumulate data for the raw input
-                    crc.accumulate(data);
-                    size += count;
-                    
-                    // Write data into compression stream
-                    return zipStream.write(data);
-                });
-            });
-          
-        }).then($=> {
+        var count, data;
         
-            // Set entry data
-            this.crc32 = crc.value;
-            this.compressedSize = compressed;
-            this.size = size;
+        // Read the file, one buffer at a time
+        while (count = await inStream.read(buffer)) {
+        
+            data = buffer.slice(0, count);
             
-            // Write the data descriptor
-            return outStream.write(this.packDataDescriptor()).then($=> this);
-        });
+            // Accumulate data for the raw input
+            crc.accumulate(data);
+            size += count;
+            
+            // Write data into compression stream
+            await zipStream.write(data);
+        }
+        
+        await zipStream.end();
+        
+        // Set entry data
+        this.crc32 = crc.value;
+        this.compressedSize = compressed;
+        this.size = size;
+    
+        await outStream.write(this.packDataDescriptor());
+        
+        return this;
     }
     
-    extract(fileStream, outStream, buffer) {
+    async extract(fileStream, outStream, buffer) {
     
         if (this.isDirectory)
             throw new Error("Entry is not a file");
         
-        var abort = false,
-            zipStream,
-            crc;
+        var count, dataHeader;
         
-        // Start reading from data header
+        // === Read the Data Header ===
+        
         fileStream.seek(this.offset);
+        count = await fileStream.read(buffer, 0, DataHeader.LENGTH);
+        dataHeader = DataHeader.fromBuffer(buffer);
         
-        return fileStream.read(buffer, 0, DataHeader.LENGTH).then(count => {
+        fileStream.seek(this.offset + dataHeader.headerSize);
         
-            // === Read the Data Header ===
-            
-            var dataHeader = DataHeader.fromBuffer(buffer),
-                crc;
-            
-            fileStream.seek(this.offset + dataHeader.headerSize);
-            
-            // Create decompression stream
-            switch (this.method) {
-            
-                case STORED:
-                
-                    zipStream = new NullStream;
-                    break;
-                    
-                case DEFLATED:
-                
-                    zipStream = new InflateStream;
-                    crc = new Crc32();
-                    break;
-                
-                default:
-                
-                    throw new Error("Unsupported compression method");
-            }
-            
-            zipStream.on("data", event => {
-            
-                // Calculate CRC-32 on each chunk of decompressed data
-                if (crc) 
-                    crc.accumulate(event.data);
-                
-                outStream.write(event.data);
-            });
-            
-        }).then($=> {
-            
-            // === Decompress Data ==
-            
-            var end = fileStream.position + this.compressedSize;
-            
-            return PromiseExtensions.iterate(stop => {
-            
-                var length = Math.min(buffer.length, end - fileStream.position);
-                
-                // Read the next chunk
-                return fileStream.read(buffer, 0, length).then(count => {
-                    
-                    // Write chunk into decompressor
-                    return zipStream.write(buffer.slice(0, count)).then(data => {
-                    
-                        if (fileStream.position >= end)
-                            return stop(zipStream.end());
-                        
-                        return data;
-                    });
-                });
-            });
-            
-        }).then($=> {
+        var zipStream, crc;
         
-            // === Finalize ===
+        // Create decompression stream
+        switch (this.method) {
+        
+            case STORED:
+                zipStream = new NullStream;
+                break;
+                
+            case DEFLATED:
+                zipStream = new InflateStream;
+                crc = new Crc32();
+                break;
             
-            // Validate CRC-32
-            if (crc && crc.value !== this.crc32)
-                throw new Error("CRC-32 check failed.");
+            default:
+                throw new Error("Unsupported compression method");
+        }
+        
+        zipStream.on("data", event => {
+        
+            // Calculate CRC-32 on each chunk of decompressed data
+            if (crc) 
+                crc.accumulate(event.data);
             
-            // Close the output stream
-            return outStream.end().then($=> this);
+            await outStream.write(event.data);
         });
+        
+        // === Decompress Data ==
+            
+        var end = fileStream.position + this.compressedSize,
+            length,
+            data;
+        
+        while (fileStream.position < end) {
+        
+            // Read the next chunk
+            length = Math.min(buffer.length, end - fileStream.position);
+            count = await fileStream.read(buffer, 0, length);
+            
+            // Write chunk into decompressor
+            data = await zipStream.write(buffer.slice(0, count));
+        }
+        
+        await zipStream.end();
+            
+        // === Finalize ===
+            
+        // Validate CRC-32
+        if (crc && crc.value !== this.crc32)
+            throw new Error("CRC-32 check failed.");
+        
+        // Close the output stream
+        await outStream.end();
+        
+        return this;
     }
     
     _setLengthFields() {

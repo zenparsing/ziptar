@@ -1,6 +1,6 @@
 module Path from "node:path";
 
-import { AsyncFS, PromiseExtensions } from "package:zen-bits";
+import { AsyncFS } from "package:zen-bits";
 import { EndHeader } from "EndHeader.js";
 import { ZipEntry } from "ZipEntry.js";
 import { FileStream } from "FileStream.js";
@@ -13,20 +13,20 @@ function dirname(path) {
 }
 
 // Creates a directory, if it doesn't already exist
-function createDirectory(path) {
+async createDirectory(path) {
 
-    return AsyncFS.stat(path).then(null, err => null).then(stat => {
+    var stat;
     
-        // Verify that destination is not something other than a directory
-        if (stat && !stat.isDirectory())
-            throw new Error("Path is not a directory.");
-        
-        // Create directory if necessary
-        if (!stat)
-            return AsyncFS.mkdir(path).then(value => null);
-        
-        return null;
-    });
+    try { stat = await AsyncFS.stat(path); }
+    catch (x) {}
+    
+    // Verify that destination is not something other than a directory
+    if (stat && !stat.isDirectory())
+        throw new Error("Path is not a directory.");
+    
+    // Create directory if necessary
+    if (!stat)
+        await AsyncFS.mkdir(path);
 }
 
 export class ZipFile {
@@ -105,56 +105,49 @@ export class ZipFile {
         this.entryTable[entry.name] = index;
     }
     
-    addFile(path, dest) {
+    async addFile(path, dest) {
     
         path = Path.resolve(path);
         dest = this._destination(dest);
         
-        return AsyncFS.stat(path).then(stat => {
+        var base = Path.basename(path),
+            stat = await AsyncFS.stat(path),
+            isDir = stat.isDirectory();
+        
+        if (!isDir && !stat.isFile())
+            throw new Error("Invalid path.");
+        
+        var entry = new ZipEntry(dest + base + (isDir ? "/" : ""));
+        entry.lastModified = stat.mtime;
+        entry.source = path;
+        
+        this.setEntry(entry);
+        
+        if (isDir) {
+        
+            var list = (await AsyncFS.readdir(path))
+                .filter(item => item !== ".." && item !== ".")
+                .map(item => Path.join(path, item));
             
-            var base = Path.basename(path),
-                isDir = stat.isDirectory(),
-                entry;
-            
-            if (!isDir && !stat.isFile())
-                throw new Error("Invalid path.");
-            
-            entry = new ZipEntry(dest + base + (isDir ? "/" : ""));
-            entry.lastModified = stat.mtime;
-            entry.source = path;
-            
-            this.setEntry(entry);
-            
-            if (isDir) {
-            
-                return AsyncFS.readdir(path).then(list => {
-                
-                    list = list
-                        .filter(item => item !== ".." && item !== ".")
-                        .map(item => Path.join(path, item));
-                    
-                    return this.addFiles(list, entry.name);
-                });
-            
-            }
-            
-            return this;
-        });
+            return this.addFiles(list, entry.name);
+        }
+        
+        return this;
     }
     
-    addFiles(list, dest) {
+    async addFiles(list, dest) {
     
         dest = this._destination(dest);
         
         if (typeof list === "string")
             list = [list];
         
-        list = list.map(path => this.addFile(path, dest));
+        await Promise.all(list.map(path => this.addFile(path, dest)));
         
-        return Promise.all(list).then($=> this);
+        return this;
     }
     
-    write(dest) {
+    async write(dest) {
     
         dest = Path.resolve(dest);
         
@@ -170,68 +163,77 @@ export class ZipFile {
             return a.toLowerCase().localeCompare(b.toLowerCase());
         });
         
-        return new FileStream().open(dest, "w").then(outStream => {
+        var outStream = await new FileStream().open(dest, "w"),
+            buffer = this._createBuffer(),
+            queue = list.slice(0),
+            entry,
+            file,
+            inStream,
+            i;
         
-            var buffer = this._createBuffer(),
-                queue = list.slice(0);
+        // Compress all files
+        for (i = 0; i < queue.length; ++i) {
+        
+            entry = this.getEntry(queue[i]);
             
-            // Compress all files
-            return PromiseExtensions.forEach(queue, entryName => {
+            if (entry.source === dest)
+                throw new Error("Cannot compress the destination file.");
             
-                var entry = this.getEntry(entryName);
-                
-                if (entry.isDirectory)
-                    return outStream.write(entry.packDataHeader());
-                
-                if (entry.source === dest)
-                    throw new Error("Cannot compress the destination file.");
-                
-                var file = new FileStream();
-                
-                return file.open(entry.source)
-                    .then(inStream => entry.compress(inStream, outStream, buffer))
-                    .then($=> file.close());
+            if (entry.isDirectory) {
             
-            }).then($=> {
+                // Write header for directories
+                await outStream.write(entry.packDataHeader());
             
-                var start = outStream.position;
-                
-                // Write central directory
-                for (var i = 0; i < list.length; ++i)
-                    outStream.write(this.getEntry(list[i]).packHeader());
-                
-                // Pack end of central directory 
-                var endHeader = EndHeader.toBuffer({
-                
-                    volumeEntries: list.length,
-                    totalEntries: list.length,
-                    size: outStream.position - start,
-                    offset: start,
-                    commentLength: Buffer.byteLength(this.comment)
-                    
-                });
-                
-                // Add comment
-                endHeader.write(this.comment, EndHeader.LENGTH);
-                
-                // Write end-of-central-directory header
-                return outStream.write(endHeader);
-            });
+            } else {
             
-        }).then($=> this);
+                // Compress file
+                file = new FileStream();
+                inStream = await file.open(entry.source);
+                
+                await entry.compress(inStream, outStream, buffer);
+                await file.close();
+            }
+        }
+        
+        var start = outStream.position;
+        
+        // Write central directory
+        for (i = 0; i < list.length; ++i)
+            await outStream.write(this.getEntry(list[i]).packHeader());
+        
+        // Pack end of central directory 
+        var endHeader = EndHeader.toBuffer({
+        
+            volumeEntries: list.length,
+            totalEntries: list.length,
+            size: outStream.position - start,
+            offset: start,
+            commentLength: Buffer.byteLength(this.comment)
+            
+        });
+                
+        // Add comment
+        endHeader.write(this.comment, EndHeader.LENGTH);
+    
+        // Write end-of-central-directory header
+        await outStream.write(endHeader);
+        
+        return this;
     }
     
-    close() {
+    async close() {
     
-        return this.fileStream.close().then($=> this);
+        await this.fileStream.close();
+        return this;
     }
     
-    extractAll(dest) {
+    async extractAll(dest) {
     
-        return this.extractDirectory("", dest);
+        await this.extractDirectory("", dest);
+        return this;
     }
     
-    extractDirectory(name, dest) {
+    async extractDirectory(name, dest) {
     
         dest = Path.resolve(dest);
         
@@ -259,30 +261,35 @@ export class ZipFile {
         names = names.sort();
         
         // Create the directory
-        return createDirectory(dest).then(value => {
+        await createDirectory(dest);
         
-            return PromiseExtensions.forEach(names, entryName => {
+        var entryName,
+            entry,
+            outName,
+            i;
             
-                var entry = this.getEntry(entryName),
-                    outName = Path.join(dest, entryName.slice(name.length));
-                
-                if (entry.isDirectory) {
-                
-                    // Create the directory
-                    return createDirectory(outName);
-                    
-                } else {
-                
-                    // Create the output file
-                    return this.extractFile(entry.name, outName, buffer);
-                }
-                
-            });
+        for (i = 0; i < names.length; ++i) {
         
-        }).then($=> this);
+            entryName = names[i];
+            entry = this.getEntry(entryName);
+            outName = Path.join(dest, entryName.slice(name.length));
+            
+            if (entry.isDirectory) {
+            
+                // Create the directory
+                await createDirectory(outName);
+                
+            } else {
+            
+                // Create the output file
+                await this.extractFile(entry.name, outName, buffer);
+            }
+        }
+        
+        return this;
     }
     
-    extractFile(name, dest, buffer) {
+    async extractFile(name, dest, buffer) {
     
         dest = Path.resolve(dest);
         
@@ -292,96 +299,87 @@ export class ZipFile {
             buffer = buffer || this._createBuffer(),
             outStream = new FileStream;
         
-        return outStream
-            .open(dest, "w")
-            .then($=> entry.extract(this.fileStream, outStream, buffer))
-            .then($=> outStream.close())
-            .then($=> AsyncFS.utimes(dest, new Date(), entry.lastModified))
-            .then($=> this);
+        await outStream.open(dest, "w");
+        await entry.extract(this.fileStream, outStream, buffer);
+        await outStream.close();
+        await AsyncFS.utimes(dest, new Date(), entry.lastModified);
+        
+        return this;
     }
     
     // Opens a zip file and reads the central directory
-    open(path) {
+    async open(path) {
     
         path = Path.resolve(path);
         
         var file = this.fileStream,
             endOffset;
         
-        return file.open(path).then($=> {
+        await file.open(path);
             
-            // === Read the Index Header ===
+        // === Read the Index Header ===
+        
+        var end = file.size - EndHeader.LENGTH, // Last possible location of start of end header
+            start = Math.max(0, end - 0xffff); // First possible location of start of end header
+        
+        file.seek(start);
+        
+        // Read the end-of-central-directory header
+        var buffer = await file.readBytes(file.size - start),
+            offset = -1,
+            i;
+        
+        // Search backward until we find the start of the header
+        for (i = end - start; i >= 0; --i) {
+        
+            // Skip if byte is not "P"
+            if (buffer[i] != 0x50) 
+                continue;
             
-            var end = file.size - EndHeader.LENGTH, // Last possible location of start of end header
-                start = Math.max(0, end - 0xffff); // First possible location of start of end header
+            // Look for header start value
+            if (buffer.readUInt32LE(i) === EndHeader.SIGNATURE) {
             
-            file.seek(start);
+                offset = i;
+                break;
+            }
+        }
+        
+        if (offset === -1)
+            throw new Error("Cannot find header start.");
+        
+        endOffset = start + offset;
+        
+        // Read header
+        var header = EndHeader.fromBuffer(buffer, offset);
+        
+        // Read optional comment
+        if (header.commentLength) {
+        
+            offset += EndHeader.LENGTH;
+            this.comment = buffer.toString("utf8", offset, offset + header.commentLength);
+        }
+        
+        // === Read the Entry Headers ===
+        
+        file.seek(header.offset);
+        
+        // Read all file entires into a single buffer
+        buffer = await file.readBytes(endOffset - header.offset);
             
-            // Read the end-of-central-directory header
-            return file.readBytes(file.size - start).then(buffer => {
+        var count = 0,
+            entry;
             
-                var offset = -1;
-                
-                // Search backward until we find the start of the header
-                for (var i = end - start; i >= 0; --i) {
-                
-                    // Skip if byte is not "P"
-                    if (buffer[i] != 0x50) 
-                        continue;
-                    
-                    // Look for header start value
-                    if (buffer.readUInt32LE(i) === EndHeader.SIGNATURE) {
-                    
-                        offset = i;
-                        break;
-                    }
-                }
-                
-                if (offset === -1)
-                    throw new Error("Cannot find header start.");
-                
-                endOffset = start + offset;
-                
-                // Read header
-                var header = EndHeader.fromBuffer(buffer, offset);
-                
-                // Read optional comment
-                if (header.commentLength) {
-                
-                    offset += EndHeader.LENGTH;
-                    this.comment = buffer.toString("utf8", offset, offset + header.commentLength);
-                }
-                
-                return header;
-                
-            });
+        // Read each file entry
+        for (i = 0; i < header.volumeEntries; ++i) {
+        
+            entry = new ZipEntry();
+            buffer = buffer.slice(count);
+            count = entry.readHeader(buffer);
             
-        }).then(header => {
-            
-            // === Read the Entry Headers ===
-            
-            file.seek(header.offset);
-            
-            // Read all file entires into a single buffer
-            return file.readBytes(endOffset - header.offset).then(buffer => {
-            
-                var count = 0,
-                    entry, 
-                    i;
-                
-                // Read each file entry
-                for (i = 0; i < header.volumeEntries; ++i) {
-                
-                    entry = new ZipEntry();
-                    buffer = buffer.slice(count);
-                    count = entry.readHeader(buffer);
-                    
-                    this.setEntry(entry);
-                }
-                
-                return this;
-            });
-        });
+            this.setEntry(entry);
+        }
+        
+        return this;
     }
     
     _assertOpen() {

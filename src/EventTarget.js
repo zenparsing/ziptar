@@ -25,10 +25,16 @@ function fire(obj, evt) {
 
 	var list = listeners(obj, evt.type),
 	    len = list.length,
-	    i;
+	    i,
+	    x;
 	
-	for (i = 0; i < len; ++i)
-	    list[i].call(obj, evt);
+	for (i = 0; i < len; ++i) {
+	
+	    x = list[i].call(obj, evt);
+	    
+	    if (x && Object(x) === x)
+	        Promise.cast(x).catch(x => setTimeout($=> { throw x }, 0));
+	}
 }
 
 export class EventTarget {

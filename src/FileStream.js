@@ -68,7 +68,7 @@ export class FileStream {
         var offset = this.position;
         this.position = Math.min(this.size, this.position + length);
         
-        return AsyncFS.read(this.file, buffer, start, length, offset);
+        return await AsyncFS.read(this.file, buffer, start, length, offset);
     }
     
     async write(buffer, start, length) {
@@ -85,7 +85,7 @@ export class FileStream {
         // resolved, then we're going to need to queue buffers.  Or does 
         // fs.write queue internally???
         
-        return AsyncFS.write(this.file, buffer, start, length, offset);
+        return await AsyncFS.write(this.file, buffer, start, length, offset);
     }
     
     seek(offset) {
