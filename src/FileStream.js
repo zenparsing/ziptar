@@ -39,13 +39,13 @@ export class FileStream {
             var fd = this.file;
             this.file = 0;
             
-            return AsyncFS.close(fd);
+            await AsyncFS.close(fd);
         }
         
-        return null;
+        return this;
     }
 
-    end() {
+    async end() {
     
         return this.close();
     }
