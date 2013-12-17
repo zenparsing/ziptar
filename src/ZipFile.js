@@ -216,8 +216,9 @@ export class ZipFile {
         // Add comment
         endHeader.write(this.comment, EndHeader.LENGTH);
     
-        // Write end-of-central-directory header
+        // Write end-of-central-directory header and close file
         await outStream.write(endHeader);
+        await outStream.close();
         
         return this;
     }

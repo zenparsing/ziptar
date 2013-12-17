@@ -3,17 +3,19 @@ export { ZipFile };
 
 export * from "ZipEntry.js";
 
-export function zip(files, dest, options) {
+export async zip(files, dest, options) {
 
-    return new ZipFile()
-        .addFiles(files)
-        .then(zip => zip.write(dest));
+    var z = new ZipFile;
+    
+    await z.addFiles(files);
+    await z.write(dest);
 }
 
-export function unzip(source, dest, options) {
+export async unzip(source, dest, options) {
 
-    return new ZipFile()
-        .open(source)
-        .then(zip => zip.extractAll(dest))
-        .then(zip => zip.close());
+    var z = new ZipFile;
+    
+    await z.open(source);
+    await z.extractAll(dest);
+    await z.close();
 }
