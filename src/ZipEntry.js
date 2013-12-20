@@ -254,9 +254,6 @@ export class ZipEntry {
         if (crc && crc.value !== this.crc32)
             throw new Error("CRC-32 check failed.");
         
-        // Close the output stream
-        await outStream.end();
-        
         return this;
     }
     
