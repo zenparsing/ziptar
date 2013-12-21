@@ -222,11 +222,11 @@ export class ZipEntry {
         }
         
         zipStream.on("data", event => {
-        
+    
             // Calculate CRC-32 on each chunk of decompressed data
             if (crc) 
                 crc.accumulate(event.data);
-            
+        
             await outStream.write(event.data);
         });
         
@@ -247,6 +247,9 @@ export class ZipEntry {
         }
         
         await zipStream.end();
+        
+        // TODO:  Sometimes we get here before we've written the last
+        // chunk to the file.
             
         // === Finalize ===
             
