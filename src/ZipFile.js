@@ -142,7 +142,8 @@ export class ZipFile {
         if (typeof list === "string")
             list = [list];
         
-        await Promise.all(list.map(path => this.addFile(path, dest)));
+        for (var i = 0; i < list.length; ++i)
+            await this.addFile(list[i], dest);
         
         return this;
     }

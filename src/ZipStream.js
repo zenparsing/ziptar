@@ -58,7 +58,7 @@ class ZipStream extends EventTarget {
         
         return { 
         
-            callback: () => {
+            callback: $=> {
         
                 this.zlib.removeListener("error", onErr);
                 resolver.resolve(null);

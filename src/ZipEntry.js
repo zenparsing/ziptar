@@ -203,7 +203,7 @@ export class ZipEntry {
         
         fileStream.seek(this.offset + dataHeader.headerSize);
         
-        var zipStream, crc;
+        var zipStream, zipFinish, crc;
         
         // Create decompression stream
         switch (this.method) {
@@ -227,7 +227,12 @@ export class ZipEntry {
             if (crc) 
                 crc.accumulate(event.data);
         
-            await outStream.write(event.data);
+            try {
+                await outStream.write(event.data);
+            } catch (err) {
+            
+                console.log("what the fuck", this.name, err);
+            }
         });
         
         // === Decompress Data ==
@@ -248,9 +253,6 @@ export class ZipEntry {
         
         await zipStream.end();
         
-        // TODO:  Sometimes we get here before we've written the last
-        // chunk to the file.
-            
         // === Finalize ===
             
         // Validate CRC-32

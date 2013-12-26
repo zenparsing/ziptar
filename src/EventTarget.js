@@ -33,7 +33,7 @@ function fire(obj, evt) {
 	    x = list[i].call(obj, evt);
 	    
 	    if (x && Object(x) === x)
-	        Promise.cast(x).catch(x => setTimeout($=> { throw x }, 0));
+	        Promise.cast(x).then(null, x => setTimeout($=> { throw x }, 0));
 	}
 }
 
