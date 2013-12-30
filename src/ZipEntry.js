@@ -227,15 +227,7 @@ export class ZipEntry {
             if (crc) 
                 crc.accumulate(event.data);
         
-            try {
-            
-                await outStream.write(event.data);
-                
-            } catch (err) {
-            
-                // For troubleshooting EBADF errors
-                console.log("Error writing to file stream", this.name, err);
-            }
+            await outStream.write(event.data);
         });
         
         // === Decompress Data ==

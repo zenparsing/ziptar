@@ -8,12 +8,17 @@ export class FileStream {
         this.position = 0;
         this.path = "";
         this.size = 0;
+        this.pending = { count: 0, promise: null, resolve: null };
     }
 
     async open(path, flags, mode) {
     
         if (this.file)
             throw new Error("File is currently open");
+        
+        // Wait for any pending file operations to complete
+        // for the previously opened file.
+        await this.pending.promise;
         
         var info;
         
@@ -39,6 +44,7 @@ export class FileStream {
             var fd = this.file;
             this.file = 0;
             
+            await this.pending.promise;
             await AsyncFS.close(fd);
         }
         
@@ -68,7 +74,9 @@ export class FileStream {
         var offset = this.position;
         this.position = Math.min(this.size, this.position + length);
         
-        return AsyncFS.read(this.file, buffer, start, length, offset);
+        this.pending += 1;
+        
+        return this._startOp($=> AsyncFS.read(this.file, buffer, start, length, offset));
     }
     
     async write(buffer, start, length) {
@@ -81,7 +89,7 @@ export class FileStream {
         var offset = this.position;
         this.position = this.position + length;
 
-        return AsyncFS.write(this.file, buffer, start, length, offset);
+        return this._startOp($=> AsyncFS.write(this.file, buffer, start, length, offset));
     }
     
     seek(offset) {
@@ -100,7 +108,23 @@ export class FileStream {
             throw new Error("File is not open");
     }
     
-    _alloc(length) {
-    
+    _startOp(fn) {
+        
+        if (this.pending.count === 0)
+            this.pending.promise = new Promise(resolve => this.pending.resolve = resolve);
+        
+        this.pending.count += 1;
+        
+        var finished = $=> {
+        
+            this.pending.count -= 1;
+            
+            if (this.pending.count === 0)
+                this.pending.resolve(null);
+        };
+        
+        var promise = fn();
+        promise.then(finished, finished);
+        return promise;
     }
 }
