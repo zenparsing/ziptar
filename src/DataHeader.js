@@ -20,7 +20,7 @@ export var DataHeader = {
             data = data.slice(offset);
         
         if (data.length < LOCHDR || data.readUInt32LE(0) != LOCSIG)
-            throw new Error("Invalid LOC header.");
+            throw new Error("Invalid LOC header");
         
         return {
         

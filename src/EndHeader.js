@@ -14,7 +14,7 @@ export var EndHeader = {
             data = data.slice(offset);
         
         if (data.length < ENDHDR || data.readUInt32LE(0) != ENDSIG)
-            throw new Error("Invalid END header.");
+            throw new Error("Invalid END header");
 
         return {
         

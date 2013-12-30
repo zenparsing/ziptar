@@ -13,7 +13,7 @@ export class FileStream {
     async open(path, flags, mode) {
     
         if (this.file)
-            throw new Error("File already open.");
+            throw new Error("File is currently open");
         
         var info;
         
@@ -21,7 +21,7 @@ export class FileStream {
         catch (x) {}
         
         if (info && !info.isFile())
-            throw new Error("File not found.");
+            throw new Error("File not found");
         
         var fd = await AsyncFS.open(path, flags || "r", mode);
         
@@ -80,11 +80,7 @@ export class FileStream {
         
         var offset = this.position;
         this.position = this.position + length;
-        
-        // TODO: If the user calls write again before the promise is
-        // resolved, then we're going to need to queue buffers.  Or does 
-        // fs.write queue internally???
-        
+
         return AsyncFS.write(this.file, buffer, start, length, offset);
     }
     
@@ -93,7 +89,7 @@ export class FileStream {
         this._assertOpen();
         
         if (offset < 0)
-            throw new Error("Invalid offset.");
+            throw new Error("Invalid file offset");
         
         this.position = offset;
     }
@@ -101,7 +97,7 @@ export class FileStream {
     _assertOpen() {
     
         if (!this.file)
-            throw new Error("File is not open.");
+            throw new Error("File is not open");
     }
     
     _alloc(length) {

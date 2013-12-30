@@ -26,7 +26,7 @@ export var EntryHeader = {
             data = data.slice(offset);
         
         if (data.length < CENHDR || data.readUInt32LE(0) != CENSIG)
-            throw new Error("Invalid CEN header.");
+            throw new Error("Invalid CEN header");
     
         return {
             

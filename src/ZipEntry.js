@@ -228,10 +228,13 @@ export class ZipEntry {
                 crc.accumulate(event.data);
         
             try {
+            
                 await outStream.write(event.data);
+                
             } catch (err) {
             
-                console.log("what the fuck", this.name, err);
+                // For troubleshooting EBADF errors
+                console.log("Error writing to file stream", this.name, err);
             }
         });
         
@@ -257,7 +260,7 @@ export class ZipEntry {
             
         // Validate CRC-32
         if (crc && crc.value !== this.crc32)
-            throw new Error("CRC-32 check failed.");
+            throw new Error("CRC-32 check failed");
         
         return this;
     }

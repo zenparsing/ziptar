@@ -22,7 +22,7 @@ async createDirectory(path) {
     
     // Verify that destination is not something other than a directory
     if (stat && !stat.isDirectory())
-        throw new Error("Path is not a directory.");
+        throw new Error("Path is not a directory");
     
     // Create directory if necessary
     if (!stat)
@@ -62,7 +62,7 @@ export class ZipFile {
         var index = this.entryTable[name];
         
         if (typeof index !== "number")
-            throw new Error("Entry not found.");
+            throw new Error("Entry not found");
         
         return this.entries[index];
     }
@@ -115,7 +115,7 @@ export class ZipFile {
             isDir = stat.isDirectory();
         
         if (!isDir && !stat.isFile())
-            throw new Error("Invalid path.");
+            throw new Error("Invalid path");
         
         var entry = new ZipEntry(dest + base + (isDir ? "/" : ""));
         entry.lastModified = stat.mtime;
@@ -178,7 +178,7 @@ export class ZipFile {
             entry = this.getEntry(queue[i]);
             
             if (entry.source === dest)
-                throw new Error("Cannot compress the destination file.");
+                throw new Error("Cannot compress the destination file");
             
             if (entry.isDirectory) {
             
@@ -248,7 +248,7 @@ export class ZipFile {
         
             // Verify the entry is a directory
             if (!this.getEntry(name).isDirectory)
-                throw new Error("Not a directory");
+                throw new Error("Entry is not a directory");
             
             // Get the names that are children of this entry
             names = this.getChildEntryNames(path);
@@ -347,7 +347,7 @@ export class ZipFile {
         }
         
         if (offset === -1)
-            throw new Error("Cannot find header start.");
+            throw new Error("Cannot find header start");
         
         endOffset = start + offset;
         
@@ -398,7 +398,7 @@ export class ZipFile {
                 name += "/";
             
             if (!this.hasEntry(name))
-                throw new Error("Invalid destination.");
+                throw new Error("Invalid destination");
             
         } else {
         

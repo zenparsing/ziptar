@@ -12,7 +12,7 @@ export var DataDescriptor = {
             data = data.slice(offset);
         
         if (data.length < EXTHDR || data.readUInt32LE(0) != EXTSIG)
-            throw new Error("Invalid EXT header.");
+            throw new Error("Invalid EXT header");
         
         return {
         

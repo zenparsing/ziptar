@@ -53,7 +53,7 @@ export class EventTarget {
     addEventListener(type, handler) {
     
         if (typeof handler !== "function")
-            throw new Error("Listener is not a function.");
+            throw new Error("Listener is not a function");
         
         var a = listeners(this, type), 
             i = a.indexOf(handler);
