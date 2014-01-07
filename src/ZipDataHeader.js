@@ -1,4 +1,4 @@
-import { toZipTime, fromZipTime } from "Utilities.js";
+import { toZipTime, fromZipTime } from "ZipUtilities.js";
 
 var LOCHDR = 30, // LOC header size
     LOCSIG = 0x04034b50, // "PK\003\004"
@@ -12,7 +12,7 @@ var LOCHDR = 30, // LOC header size
     LOCNAM = 26, // filename length
     LOCEXT = 28; // extra field length
 
-export var DataHeader = {
+export var ZipDataHeader = {
 
     fromBuffer(data, offset) {
     

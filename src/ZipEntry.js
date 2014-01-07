@@ -1,9 +1,9 @@
 module FS from "node:fs";
 
-import { DataHeader } from "DataHeader.js";
-import { DataDescriptor } from "DataDescriptor.js";
-import { EntryHeader } from "EntryHeader.js";
-import { Crc32 } from "Utilities.js";
+import { ZipDataHeader as DataHeader } from "ZipDataHeader.js";
+import { ZipDataDescriptor as DataDescriptor } from "ZipDataDescriptor.js";
+import { ZipEntryHeader as EntryHeader } from "ZipEntryHeader.js";
+import { Crc32 } from "ZipUtilities.js";
 import { BufferWriter } from "BufferWriter.js";
 import { InflateStream, DeflateStream, NullStream } from "ZipStream.js";
 

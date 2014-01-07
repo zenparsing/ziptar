@@ -6,7 +6,7 @@ var ENDHDR = 22, // END header size
     ENDOFF = 16, // offset of first CEN header
     ENDCOM = 20; // zip file comment length
     
-export var EndHeader = {
+export var ZipEndHeader = {
 
     fromBuffer(data, offset) {
     

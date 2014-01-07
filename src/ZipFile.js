@@ -1,7 +1,7 @@
 module Path from "node:path";
 
 import { AsyncFS } from "package:zen-bits";
-import { EndHeader } from "EndHeader.js";
+import { ZipEndHeader as EndHeader } from "ZipEndHeader.js";
 import { ZipEntry } from "ZipEntry.js";
 import { FileStream } from "FileStream.js";
 

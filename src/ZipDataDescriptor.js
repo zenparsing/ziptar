@@ -4,7 +4,7 @@ var EXTSIG = 0x08074b50, // "PK\007\008"
     EXTSIZ = 8, // compressed size
     EXTLEN = 12; // uncompressed size
 
-export var DataDescriptor = {
+export var ZipDataDescriptor = {
 
     fromBuffer(data, offset) {
     
