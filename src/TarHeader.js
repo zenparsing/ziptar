@@ -1,3 +1,5 @@
+import { normalizePath } from "Utilities.js";
+
 var NAME = 100,
     MODE = 8,
     OWNER = 8,
@@ -18,19 +20,9 @@ var NAME = 100,
 var CHECKSUM_START = 148,
     CHECKSUM_END = CHECKSUM_START + CHECKSUM,
     HEADER_SIZE = 512,
-    SPACE_VAL = " ".charCodeAt(0);
+    SPACE_VAL = " ".charCodeAt(0),
+    SLASH_VAL = "/".charCodeAt(0);
 
-var typeMap = ($=> {
-
-    var m = {};
-    
-    _("0", "file");
-    
-    return m;
-    
-    function _(id, name) { m[id] = name; m[name] = id; }
-    
-})();
 
 class FieldWriter {
 
@@ -44,6 +36,15 @@ class FieldWriter {
     skip(length) {
     
         this.position += length;
+    }
+    
+    zero(length) {
+    
+        if (length === void 0)
+            length = this.buffer.length - this.position;
+        
+        for (var i = 0; i < length; ++i)
+            this.buffer[this.position++] = 0;
     }
     
     text(value, length) {
@@ -225,6 +226,30 @@ class Checksum {
     }
 }
 
+function splitPath(path) {
+
+    var b = new Buffer(path),
+        name = path,
+        prefix = "";
+    
+    if (b.length <= NAME || b.length > NAME + PREFIX + 1)
+        return { name, prefix };
+    
+    // Scan for a "/" from the 101th byte from the end to the 
+    // next to last byte
+    for (var i = b.length - (NAME + 1); i < b.length - 1; ++i) {
+        
+        if (b[i] === SLASH_VAL) {
+        
+            prefix = b.toString("utf8", 0, i);
+            name = b.toString("utf8", i + 1, b.length);
+            break;
+        }
+    }
+    
+    return { name, prefix };
+}
+
 export class TarHeader {
 
     constructor(name) {
@@ -243,20 +268,21 @@ export class TarHeader {
         this.deviceMinor = 0;
     }
     
-    write(buffer) {
+    toBuffer(buffer) {
     
         if (buffer.length < 512)
             throw new Error("Invalid buffer size");
         
-        var w = new FieldWriter(buffer);
+        var w = new FieldWriter(buffer),
+            path = splitPath(normalizePath(this.name));
         
-        w.text(this.name, NAME);
+        w.text(path.name, NAME);
         w.number(this.mode & 0x1FF, MODE);
         w.number(this.userID, OWNER);
         w.number(this.groupID, GROUP);
         w.date(this.lastModified, MODIFIED);
         w.skip(CHECKSUM);
-        w.text(typeMap[this.type] || "0", TYPE);
+        w.text(this.type, TYPE);
         w.text(this.linkPath, LINK_PATH);
         w.text("ustar ", MAGIC)
         w.text("00", VERSION);
@@ -264,9 +290,16 @@ export class TarHeader {
         w.text(this.groupName, GROUP_NAME);
         w.number(this.deviceMajor, DEV_MAJOR);
         w.number(this.deviceMinor, DEV_MINOR);
+        w.text(path.prefix, PREFIX);
+        w.zero();
         
+        // Calculate and store checksum after everything else
+        // has been written
+        w.position = CHECKSUM_START;
+        w.number(Checksum.compute(buffer).signed);
         
-    
+        // TODO: Handle w.overflow with extended headers
+        
         return buffer;
     }
     
@@ -290,7 +323,7 @@ export class TarHeader {
         if (!Checksum.match(data, r.number(CHECKSUM)))
             throw new Error("Invalid checksum");
         
-        h.type = typeMap[r.text(TYPE)] || typeMap["0"];
+        h.type = r.text(TYPE);
         h.linkPath = r.text(LINK_PATH);
         
         if (r.text(MAGIC) !== "ustar"))
@@ -305,9 +338,14 @@ export class TarHeader {
         
         // TODO: node-tar attempts to parse out file access time and file creation time
         // attributes from the 130th char of this field.  Should we?
+        
         var prefix = r.text(PREFIX);
         
         if (prefix)
-            this.name = prefix + "/" + this.name;
+            h.name = prefix + "/" + h.name;
+        
+        h.name = normalizePath(h.name);
+        
+        return h;
     }
 }

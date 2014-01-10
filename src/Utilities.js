@@ -1,3 +1,12 @@
+// Returns a normalized path which is valid within an archive
+export function normalizePath(path) {
+
+    return path
+        .replace(/\\+/g, "/")        // Convert "\" to "/"
+        .replace(/\/\/+/g, "/")      // Collapse "//"
+        .replace(/^(\w+:)?\//, "")   // Remove absolute prefixes
+}
+
 // == CRC-32 Redundancy Checking ==
 
 export class Crc32 {

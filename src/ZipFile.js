@@ -272,6 +272,7 @@ export class ZipFile {
             
         for (i = 0; i < names.length; ++i) {
         
+            // TODO:  what happens if entryName is malformed?  An absolute path?
             entryName = names[i];
             entry = this.getEntry(entryName);
             outName = Path.join(dest, entryName.slice(name.length));

@@ -3,7 +3,7 @@ module FS from "node:fs";
 import { ZipDataHeader as DataHeader } from "ZipDataHeader.js";
 import { ZipDataDescriptor as DataDescriptor } from "ZipDataDescriptor.js";
 import { ZipEntryHeader as EntryHeader } from "ZipEntryHeader.js";
-import { Crc32 } from "ZipUtilities.js";
+import { Crc32 } from "Utilities.js";
 import { BufferWriter } from "BufferWriter.js";
 import { InflateStream, DeflateStream, NullStream } from "ZipStream.js";
 
@@ -15,6 +15,8 @@ var STORED = 0,
 export class ZipEntry {
 
     constructor(name) {
+        
+        // TODO:  Convert \ to /?
         
         this.versionMadeBy = MADE_BY_UNIX;
         this.version = 10;
