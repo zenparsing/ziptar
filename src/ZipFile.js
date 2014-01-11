@@ -319,7 +319,7 @@ export class ZipFile {
             endOffset;
         
         await file.open(path);
-            
+        
         // === Read the Index Header ===
         
         var end = file.size - EndHeader.LENGTH, // Last possible location of start of end header

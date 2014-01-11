@@ -1,0 +1,12 @@
+
+Archive File:
+    - list:  Get the list of archive entries
+    - append:  Add a list of entries to an archive
+    - create:  Create a new archive from a list of entries
+    - extract:  Extract files, directories, etc.
+
+Archive Entry:
+    - Standard file attributes
+    - Optional file attributes
+    - An internal path
+    - A source path (if it is going to be put into an archive)

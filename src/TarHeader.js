@@ -268,28 +268,29 @@ export class TarHeader {
         this.deviceMinor = 0;
     }
     
-    toBuffer(buffer) {
+    static pack(fields, buffer) {
     
         if (buffer.length < 512)
             throw new Error("Invalid buffer size");
         
-        var w = new FieldWriter(buffer),
-            path = splitPath(normalizePath(this.name));
+        var w = new FieldWriter(buffer);
+        var f = fields;
+        var path = splitPath(normalizePath(f.name));
         
         w.text(path.name, NAME);
-        w.number(this.mode & 0x1FF, MODE);
-        w.number(this.userID, OWNER);
-        w.number(this.groupID, GROUP);
-        w.date(this.lastModified, MODIFIED);
+        w.number(f.mode & 0x1FF, MODE);
+        w.number(f.userID, OWNER);
+        w.number(f.groupID, GROUP);
+        w.date(f.lastModified, MODIFIED);
         w.skip(CHECKSUM);
-        w.text(this.type, TYPE);
-        w.text(this.linkPath, LINK_PATH);
+        w.text(f.type, TYPE);
+        w.text(f.linkPath, LINK_PATH);
         w.text("ustar ", MAGIC)
         w.text("00", VERSION);
-        w.text(this.userName, OWNER_NAME);
-        w.text(this.groupName, GROUP_NAME);
-        w.number(this.deviceMajor, DEV_MAJOR);
-        w.number(this.deviceMinor, DEV_MINOR);
+        w.text(f.userName, OWNER_NAME);
+        w.text(f.groupName, GROUP_NAME);
+        w.number(f.deviceMajor, DEV_MAJOR);
+        w.number(f.deviceMinor, DEV_MINOR);
         w.text(path.prefix, PREFIX);
         w.zero();
         
@@ -303,38 +304,36 @@ export class TarHeader {
         return buffer;
     }
     
-    static fromBuffer(data, offset) {
+    static unpack(fields, buffer) {
     
-        if (offset)
-            data = data.slice(offset);
+        if (buffer.length < 512)
+            throw new Error("Invalid buffer size");
         
-        if (data.length < 512)
-            throw new Error("Invalid TAR header");
+        var r = new FieldReader(buffer);
+        var f = fields;
         
-        var r = new FieldReader(data),
-            h = new TarHeader;
-        
-        h.name = r.text(NAME);
-        h.mode = r.number(MODE);
-        h.userID = r.number(OWNER);
-        h.groupID = r.number(GROUP);
-        h.lastModified = r.date(MODIFIED);
+        f.name = r.text(NAME);
+        f.mode = r.number(MODE);
+        f.userID = r.number(OWNER);
+        f.groupID = r.number(GROUP);
+        f.lastModified = r.date(MODIFIED);
         
         if (!Checksum.match(data, r.number(CHECKSUM)))
             throw new Error("Invalid checksum");
         
-        h.type = r.text(TYPE);
-        h.linkPath = r.text(LINK_PATH);
+        f.type = r.text(TYPE);
+        f.linkPath = r.text(LINK_PATH);
         
+        // Stop here if magic "ustar" field is not set
         if (r.text(MAGIC) !== "ustar"))
-            return h;
+            return f;
         
         r.next(VERSION);
         
-        h.userName = r.text(OWNER_NAME);
-        h.groupName = r.text(GROUP_NAME);
-        h.deviceMajor = r.number(DEV_MAJOR);
-        h.deviceMinor = r.number(DEV_MINOR);
+        f.userName = r.text(OWNER_NAME);
+        f.groupName = r.text(GROUP_NAME);
+        f.deviceMajor = r.number(DEV_MAJOR);
+        f.deviceMinor = r.number(DEV_MINOR);
         
         // TODO: node-tar attempts to parse out file access time and file creation time
         // attributes from the 130th char of this field.  Should we?
@@ -342,10 +341,10 @@ export class TarHeader {
         var prefix = r.text(PREFIX);
         
         if (prefix)
-            h.name = prefix + "/" + h.name;
+            f.name = prefix + "/" + f.name;
         
-        h.name = normalizePath(h.name);
+        f.name = normalizePath(f.name);
         
-        return h;
+        return f;
     }
 }

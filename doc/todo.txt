@@ -1,8 +1,5 @@
 == TODO ==
 
-- Minimize memory usage.  We are using way more memory than is needed.  What
-  portion of the code is generating unbounded memory allocations?
-
 - Should we perform checks on file offsets, etc., before attempting reads?
   Should we attempt to work with an invalid zip file or just bork (as now)?
   
