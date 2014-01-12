@@ -41,9 +41,9 @@ export var ZipEntryHeader = {
             fileNameLength: data.readUInt16LE(CENNAM),
             extraLength: data.readUInt16LE(CENEXT),
             commentLength: data.readUInt16LE(CENCOM),
-            diskNumStart: data.readUInt16LE(CENDSK),
-            inAttr: data.readUInt16LE(CENATT),
-            attr: data.readUInt32LE(CENATX),
+            startDisk: data.readUInt16LE(CENDSK),
+            internalAttributes: data.readUInt16LE(CENATT),
+            attributes: data.readUInt32LE(CENATX),
             offset: data.readUInt32LE(CENOFF),
             
             get headerSize() { return CENHDR + this.variableSize; },
@@ -71,9 +71,9 @@ export var ZipEntryHeader = {
         data.writeUInt16LE(fields.fileNameLength, CENNAM);
         data.writeUInt16LE(fields.extraLength, CENEXT);
         data.writeUInt16LE(fields.commentLength, CENCOM);
-        data.writeUInt16LE(fields.diskNumStart, CENDSK);
-        data.writeUInt16LE(fields.inAttr, CENATT);
-        data.writeUInt32LE(fields.attr, CENATX);
+        data.writeUInt16LE(fields.startDisk, CENDSK);
+        data.writeUInt16LE(fields.internalAttributes, CENATT);
+        data.writeUInt32LE(fields.attributes, CENATX);
         data.writeUInt32LE(fields.offset, CENOFF);
         
         return data;

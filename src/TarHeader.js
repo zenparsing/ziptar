@@ -252,9 +252,9 @@ function splitPath(path) {
 
 export class TarHeader {
 
-    constructor(name) {
+    constructor(path) {
     
-        this.name = name || "";
+        this.path = path || "";
         this.mode = 0;
         this.userID = 0;
         this.groupID = 0;
@@ -268,29 +268,28 @@ export class TarHeader {
         this.deviceMinor = 0;
     }
     
-    static pack(fields, buffer) {
+    pack(buffer) {
     
         if (buffer.length < 512)
             throw new Error("Invalid buffer size");
         
         var w = new FieldWriter(buffer);
-        var f = fields;
-        var path = splitPath(normalizePath(f.name));
+        var path = splitPath(normalizePath(this.path));
         
         w.text(path.name, NAME);
-        w.number(f.mode & 0x1FF, MODE);
-        w.number(f.userID, OWNER);
-        w.number(f.groupID, GROUP);
-        w.date(f.lastModified, MODIFIED);
+        w.number(this.mode & 0x1FF, MODE);
+        w.number(this.userID, OWNER);
+        w.number(this.groupID, GROUP);
+        w.date(this.lastModified, MODIFIED);
         w.skip(CHECKSUM);
-        w.text(f.type, TYPE);
-        w.text(f.linkPath, LINK_PATH);
+        w.text(this.type, TYPE);
+        w.text(this.linkPath, LINK_PATH);
         w.text("ustar ", MAGIC)
         w.text("00", VERSION);
-        w.text(f.userName, OWNER_NAME);
-        w.text(f.groupName, GROUP_NAME);
-        w.number(f.deviceMajor, DEV_MAJOR);
-        w.number(f.deviceMinor, DEV_MINOR);
+        w.text(this.userName, OWNER_NAME);
+        w.text(this.groupName, GROUP_NAME);
+        w.number(this.deviceMajor, DEV_MAJOR);
+        w.number(this.deviceMinor, DEV_MINOR);
         w.text(path.prefix, PREFIX);
         w.zero();
         
@@ -304,15 +303,15 @@ export class TarHeader {
         return buffer;
     }
     
-    static unpack(fields, buffer) {
+    static unpack(buffer) {
     
         if (buffer.length < 512)
             throw new Error("Invalid buffer size");
         
         var r = new FieldReader(buffer);
-        var f = fields;
+        var f = new TarHeader;
         
-        f.name = r.text(NAME);
+        f.path = r.text(NAME);
         f.mode = r.number(MODE);
         f.userID = r.number(OWNER);
         f.groupID = r.number(GROUP);
@@ -341,9 +340,9 @@ export class TarHeader {
         var prefix = r.text(PREFIX);
         
         if (prefix)
-            f.name = prefix + "/" + f.name;
+            f.path = prefix + "/" + f.path;
         
-        f.name = normalizePath(f.name);
+        f.path = normalizePath(f.path);
         
         return f;
     }

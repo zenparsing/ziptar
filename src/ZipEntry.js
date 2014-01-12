@@ -3,7 +3,7 @@ module FS from "node:fs";
 import { ZipDataHeader as DataHeader } from "ZipDataHeader.js";
 import { ZipDataDescriptor as DataDescriptor } from "ZipDataDescriptor.js";
 import { ZipEntryHeader as EntryHeader } from "ZipEntryHeader.js";
-import { Crc32 } from "Utilities.js";
+import { Crc32, normalizePath } from "Utilities.js";
 import { BufferWriter } from "BufferWriter.js";
 import { InflateStream, DeflateStream, NullStream } from "ZipStream.js";
 
@@ -16,22 +16,19 @@ export class ZipEntry {
 
     constructor(name) {
         
-        // TODO:  Convert \ to /?
-        
         this.versionMadeBy = MADE_BY_UNIX;
         this.version = 10;
         this.flags = 0;
-        this.method = 0;
+        this.method = STORED;
         this.lastModified = new Date(0);
         this.crc32 = 0;
         this.compressedSize = 0;
         this.size = 0;
-        this.diskNumStart = 0;
-        this.inAttr = 0;
-        this.attr = 0;
+        this.startDisk = 0;
+        this.internalAttributes = 0;
+        this.attributes = 0;
         this.offset = 0;
-        
-        this.name = name || "";
+        this.name = normalizePath(name || "");
         this.extra = null;
         this.comment = "";
         
@@ -85,7 +82,7 @@ export class ZipEntry {
         return offset;
     }
     
-    packHeader() {
+    writeHeader() {
     
         this._setLengthFields();
     
@@ -101,7 +98,7 @@ export class ZipEntry {
         return buffer;
     }
     
-    packDataHeader() {
+    writeDataHeader() {
     
         this._setLengthFields();
         
@@ -116,7 +113,7 @@ export class ZipEntry {
         return buffer;
     }
     
-    packDataDescriptor() {
+    writeDataDescriptor() {
     
         return DataDescriptor.toBuffer(this);
     }
@@ -161,7 +158,7 @@ export class ZipEntry {
         this.offset = outStream.position;
         
         // Write the data header
-        await outStream.write(this.packDataHeader());
+        await outStream.write(this.writeDataHeader());
         
         var count, data;
         
@@ -185,7 +182,7 @@ export class ZipEntry {
         this.compressedSize = compressed;
         this.size = size;
     
-        await outStream.write(this.packDataDescriptor());
+        await outStream.write(this.writeDataDescriptor());
         
         return this;
     }
