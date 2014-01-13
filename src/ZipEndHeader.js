@@ -1,51 +1,67 @@
-var ENDHDR = 22, // END header size
-    ENDSIG = 0x06054b50, // "PK\005\006"
-    ENDSUB = 8, // number of entries on this disk
-    ENDTOT = 10, // total number of entries
-    ENDSIZ = 12, // central directory size in bytes
-    ENDOFF = 16, // offset of first CEN header
-    ENDCOM = 20; // zip file comment length
-    
-export var ZipEndHeader = {
+import { BufferReader } from "BufferReader.js";
+import { BufferWriter } from "BufferWriter.js";
 
-    fromBuffer(data, offset) {
+var FIXED_LENGTH = 22,
+    SIGNATURE = 0x06054b50; // "PK\005\006"
     
-        if (offset)
-            data = data.slice(offset);
+export class ZipEndHeader {
+
+    constructor() {
+    
+        this.disk = 0;
+        this.startDisk = 0;
+        this.volumeEntries = 0;
+        this.totalEntries = 0;
+        this.size = 0;
+        this.offset = 0;
+        this.commentLength = 0;
+    }
+    
+    get headerSize() { return FIXED_LENGTH + this.variableSize; }
+    get variableSize() { return this.commentLength; }
+    
+    write(buffer) {
+    
+        if (buffer === void 0)
+            buffer = new Buffer(this.headerSize);
+        else if (buffer.length < this.headerSize)
+            throw new Error("Insufficient buffer");
         
-        if (data.length < ENDHDR || data.readUInt32LE(0) != ENDSIG)
+        var w = new BufferWriter(buffer);
+        
+        w.writeUInt32LE(SIGNATURE);
+        w.writeUInt16LE(this.disk);
+        w.writeUInt16LE(this.startDisk);
+        w.writeUInt16LE(this.volumeEntries);
+        w.writeUInt16LE(this.totalEntries);
+        w.writeUInt32LE(this.size);
+        w.writeUInt32LE(this.offset);
+        w.writeUInt16LE(this.commentLength);
+        
+        return buffer;
+    }
+    
+    static get LENGTH() { return FIXED_LENGTH; }
+    
+    static get SIGNATURE() { return SIGNATURE; }
+    
+    static fromBuffer(buffer) {
+    
+        var h = new this();
+        var r = new BufferReader(buffer);
+        
+        if (r.readUInt32LE() !== SIGNATURE)
             throw new Error("Invalid END header");
 
-        return {
+        h.disk = r.readUInt16LE();
+        h.startDisk = r.readUInt16LE();
+        h.volumeEntries = r.readUInt16LE();
+        h.totalEntries = r.readUInt16LE();
+        h.size = r.readUInt32LE();
+        h.offset = r.readUInt32LE();
+        h.commentLength = r.readUInt16LE();
         
-            volumeEntries: data.readUInt16LE(ENDSUB),
-            totalEntries: data.readUInt16LE(ENDTOT),
-            size: data.readUInt32LE(ENDSIZ),
-            offset: data.readUInt32LE(ENDOFF),
-            commentLength: data.readUInt16LE(ENDCOM),
-            
-            get headerSize() { return EndHeader.LENGTH + this.commentLength; },
-            get variableSize() { return this.commentLength; }
-        };
-    },
+        return h;
+    }
     
-    toBuffer(fields) {
-    
-        var data = new Buffer(ENDHDR + fields.commentLength);
-        
-        data.writeUInt32LE(ENDSIG, 0);
-        data.writeUInt32LE(0, 4);
-        
-        data.writeUInt16LE(fields.volumeEntries, ENDSUB);
-        data.writeUInt16LE(fields.totalEntries, ENDTOT);
-        data.writeUInt32LE(fields.size, ENDSIZ);
-        data.writeUInt32LE(fields.offset, ENDOFF);
-        data.writeUInt16LE(fields.commentLength, ENDCOM);
-        
-        return data;
-    },
-    
-    LENGTH: ENDHDR,
-    
-    SIGNATURE: ENDSIG
-};
+}

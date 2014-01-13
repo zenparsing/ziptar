@@ -5,6 +5,7 @@ import { ZipDataDescriptor as DataDescriptor } from "ZipDataDescriptor.js";
 import { ZipEntryHeader as EntryHeader } from "ZipEntryHeader.js";
 import { Crc32, normalizePath } from "Utilities.js";
 import { BufferWriter } from "BufferWriter.js";
+import { BufferReader } from "BufferReader.js";
 import { InflateStream, DeflateStream, NullStream } from "ZipStream.js";
 
 var STORED = 0,
@@ -49,32 +50,44 @@ export class ZipEntry {
     
     readHeader(buffer) {
     
-        return EntryHeader.fromBuffer(buffer, this);
+        var h = EntryHeader.fromBuffer(buffer);
+        Object.keys(h).forEach(k => this[k] !== void 0 && (this[k] = h[k]));
+        
+        var r = new BufferReader(buffer.slice(EntryHeader.LENGTH));
+        
+        this.name = r.readString(h.fileNameLength);
+        this.extra = r.read(h.extraLength);
+        this.comment = r.readString(h.commentLength);
+        
+        return h.headerSize;
     }
     
-    packHeader() {
+    writeHeader() {
     
-        return EntryHeader.toBuffer(this);
-    }
+        var buffer = EntryHeader.fromEntry(this).write();
+        var w = new BufferWriter(buffer.slice(EntryHeader.LENGTH));
     
-    packDataHeader() {
-    
-        this._setLengthFields();
-        
-        var buffer = DataHeader.toBuffer(this),
-            writer = new BufferWriter(buffer);
-        
-        writer.position = DataHeader.LENGTH;
-        
-        this.name && writer.writeString(this.name);
-        this.extra && writer.write(this.extra);
+        if (this.name) w.writeString(this.name);
+        if (this.extra) w.write(this.extra);
+        if (this.comment) w.writeString(this.comment);
         
         return buffer;
     }
     
-    packDataDescriptor() {
+    writeDataHeader() {
     
-        return DataDescriptor.toBuffer(this);
+        var buffer = DataHeader.fromEntry(this).write();
+        var w = new BufferWriter(buffer.slice(DataHeader.LENGTH));
+    
+        if (this.name) w.writeString(this.name);
+        if (this.extra) w.write(this.extra);
+        
+        return buffer;
+    }
+    
+    writeDataDescriptor() {
+    
+        return DataDescriptor.fromEntry(this).write();
     }
     
     async compress(inStream, outStream, buffer) {
@@ -117,7 +130,7 @@ export class ZipEntry {
         this.offset = outStream.position;
         
         // Write the data header
-        await outStream.write(this.packDataHeader());
+        await outStream.write(this.writeDataHeader());
         
         var count, data;
         
@@ -141,7 +154,7 @@ export class ZipEntry {
         this.compressedSize = compressed;
         this.size = size;
     
-        await outStream.write(this.packDataDescriptor());
+        await outStream.write(this.writeDataDescriptor());
         
         return this;
     }

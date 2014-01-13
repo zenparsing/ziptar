@@ -183,7 +183,7 @@ export class ZipFile {
             if (entry.isDirectory) {
             
                 // Write header for directories
-                await outStream.write(entry.packDataHeader());
+                await outStream.write(entry.writeDataHeader());
             
             } else {
             
@@ -200,24 +200,24 @@ export class ZipFile {
         
         // Write central directory
         for (i = 0; i < list.length; ++i)
-            await outStream.write(this.getEntry(list[i]).packHeader());
+            await outStream.write(this.getEntry(list[i]).writeHeader());
         
         // Pack end of central directory 
-        var endHeader = EndHeader.toBuffer({
+        var endHeader = new EndHeader();
         
-            volumeEntries: list.length,
-            totalEntries: list.length,
-            size: outStream.position - start,
-            offset: start,
-            commentLength: Buffer.byteLength(this.comment)
-            
-        });
+        endHeader.volumeEntries = list.length;
+        endHeader.totalEntries = list.length;
+        endHeader.size = outStream.position - start;
+        endHeader.offset = start;
+        endHeader.commentLength = Buffer.byteLength(this.comment);
+        
+        var endBuffer = endHeader.write();
                 
         // Add comment
-        endHeader.write(this.comment, EndHeader.LENGTH);
+        endBuffer.write(this.comment, EndHeader.LENGTH);
     
         // Write end-of-central-directory header and close file
-        await outStream.write(endHeader);
+        await outStream.write(endBuffer);
         await outStream.close();
         
         return this;
@@ -353,7 +353,7 @@ export class ZipFile {
         endOffset = start + offset;
         
         // Read header
-        var header = EndHeader.fromBuffer(buffer, offset);
+        var header = EndHeader.fromBuffer(buffer.slice(offset));
         
         // Read optional comment
         if (header.commentLength) {

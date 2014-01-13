@@ -8,6 +8,9 @@ export class BufferReader {
     
     read(length, target, offset) {
     
+        if (length === 0)
+            return null;
+        
         if (target === void 0) {
         
             target = new Buffer(length);
@@ -19,6 +22,9 @@ export class BufferReader {
     
     readString(byteLength, encoding) {
     
+        if (byteLength === 0)
+            return "";
+        
         return this.buffer.toString(encoding || "utf8", this._advance(byteLength), this.position);
     }
     

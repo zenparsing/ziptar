@@ -1,41 +1,62 @@
-var EXTSIG = 0x08074b50, // "PK\007\008"
-    EXTHDR = 16, // EXT header size
-    EXTCRC = 4, // uncompressed file crc-32 value
-    EXTSIZ = 8, // compressed size
-    EXTLEN = 12; // uncompressed size
+import { BufferReader } from "BufferReader.js";
+import { BufferWriter } from "BufferWriter.js";
 
-export var ZipDataDescriptor = {
+var LENGTH = 16,
+    SIGNATURE = 0x08074b50; // "PK\007\008"
 
-    fromBuffer(data, offset) {
+export class ZipDataDescriptor {
+
+    constructor() {
     
-        if (offset)
-            data = data.slice(offset);
+        this.crc32 = 0;
+        this.compressedSize = 0;
+        this.size = 0;
+    }
+    
+    get headerSize() { return LENGTH; }
+    get variableSize() { return 0; }
+    
+    write(buffer) {
+    
+        if (buffer === void 0)
+            buffer = new Buffer(this.headerSize);
+        else if (buffer.length < this.headerSize)
+            throw new Error("Insufficient buffer");
         
-        if (data.length < EXTHDR || data.readUInt32LE(0) != EXTSIG)
+        var w = new BufferWriter(buffer);
+        
+        w.writeUInt32LE(SIGNATURE);
+        w.writeUInt32LE(this.crc32);
+        w.writeUInt32LE(this.compressedSize);
+        w.writeUInt32LE(this.size);
+        
+        return buffer;
+    }
+    
+    static get LENGTH() { return LENGTH; }
+    
+    static get SIGNATURE() { return SIGNATURE; }
+    
+    static fromBuffer(buffer) {
+    
+        var r = new BufferReader(buffer);
+        
+        if (r.readUInt32LE() !== SIGNATURE)
             throw new Error("Invalid EXT header");
         
-        return {
+        var h = new this();
+        h.crc32 = data.readUInt32LE();
+        h.compressedSize = data.readUInt32LE();
+        h.size = data.readUInt32LE();
         
-            crc32: data.readUInt32LE(EXTCRC),
-            compressedSize: data.readUInt32LE(EXTSIZ),
-            size: data.readUInt32LE(EXTLEN),
-            
-            headerSize: EXTHDR,
-            variableSize: 0
-        };
-    },
+        return h;
+    }
     
-    toBuffer(fields) {
+    static fromEntry(entry) {
     
-        var data = new Buffer(EXTHDR);
-        
-        data.writeUInt32LE(EXTSIG, 0);
-        data.writeUInt32LE(fields.crc32, EXTCRC);
-        data.writeUInt32LE(fields.compressedSize, EXTSIZ);
-        data.writeUInt32LE(fields.size, EXTLEN);
-        
-        return data;
-    },
+        var h = new this();
+        Object.keys(this).forEach(k => entry[k] !== void 0 && (h[k] = entry[k]));
+        return h;
+    }
     
-    LENGTH: EXTHDR
-};
+}
