@@ -376,8 +376,7 @@ export class ZipFile {
         for (i = 0; i < header.volumeEntries; ++i) {
         
             entry = new ZipEntry();
-            buffer = buffer.slice(count);
-            count = entry.readHeader(buffer);
+            count = entry.readHeader(buffer = buffer.slice(count));
             
             this.setEntry(entry);
         }

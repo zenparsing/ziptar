@@ -1,83 +1,77 @@
 import { fromZipTime, toZipTime } from "Utilities.js";
+import { BufferWriter } from "BufferWriter.js";
+import { BufferReader } from "BufferReader.js";
 
-var CENHDR = 46, // CEN header size
-    CENSIG = 0x02014b50, // "PK\001\002"
-    CENVEM = 4, // version made by
-    CENVER = 6, // version needed to extract
-    CENFLG = 8, // encrypt, decrypt flags
-    CENHOW = 10, // compression method
-    CENTIM = 12, // modification time (2 bytes time, 2 bytes date)
-    CENCRC = 16, // uncompressed file crc-32 value
-    CENSIZ = 20, // compressed size
-    CENLEN = 24, // uncompressed size
-    CENNAM = 28, // filename length
-    CENEXT = 30, // extra field length
-    CENCOM = 32, // file comment length
-    CENDSK = 34, // volume number start
-    CENATT = 36, // internal file attributes
-    CENATX = 38, // external file attributes
-    CENOFF = 42; // LOC header offset
+var FIXED_LENGTH = 46,
+    SIGNATURE = 0x02014b50; // "PK\001\002"
 
 export var ZipEntryHeader = {
 
-    fromBuffer(data, offset) {
+    fromBuffer(buffer, entry) {
     
-        if (offset)
-            data = data.slice(offset);
+        var r = new BufferReader(buffer);
         
-        if (data.length < CENHDR || data.readUInt32LE(0) != CENSIG)
+        if (r.readUInt32LE() !== SIGNATURE)
             throw new Error("Invalid CEN header");
-    
-        return {
-            
-            versionMadeBy: data.readUInt16LE(CENVEM),
-            version: data.readUInt16LE(CENVER),
-            flags: data.readUInt16LE(CENFLG),
-            method: data.readUInt16LE(CENHOW),
-            lastModified: fromZipTime(data.readUInt32LE(CENTIM)),
-            crc32: data.readUInt32LE(CENCRC),
-            compressedSize: data.readUInt32LE(CENSIZ),
-            size: data.readUInt32LE(CENLEN),
-            fileNameLength: data.readUInt16LE(CENNAM),
-            extraLength: data.readUInt16LE(CENEXT),
-            commentLength: data.readUInt16LE(CENCOM),
-            startDisk: data.readUInt16LE(CENDSK),
-            internalAttributes: data.readUInt16LE(CENATT),
-            attributes: data.readUInt32LE(CENATX),
-            offset: data.readUInt32LE(CENOFF),
-            
-            get headerSize() { return CENHDR + this.variableSize; },
-            get variableSize() { return this.fileNameLength + this.extraLength + this.commentLength; }
-        }
+                
+        entry.versionMadeBy = r.readUInt16LE();
+        entry.version = r.readUInt16LE();
+        entry.flags = r.readUInt16LE();
+        entry.method = r.readUInt16LE();
+        entry.lastModified = fromZipTime(r.readUInt32LE());
+        entry.crc32 = r.readUInt32LE();
+        entry.compressedSize = r.readUInt32LE();
+        entry.size = r.readUInt32LE();
+        
+        var fileNameLength = r.readUInt16LE();
+        var extraLength = r.readUInt16LE();
+        var commentLength = r.readUInt16LE();
+        
+        entry.startDisk = r.readUInt16LE();
+        entry.internalAttributes = r.readUInt16LE();
+        entry.attributes = r.readUInt32LE();
+        entry.offset = r.readUInt32LE();
+        
+        entry.name = fileNameLength ? r.readString(fileNameLength) : "";
+        entry.extra = extraLength ? r.read(extraLength) : null;
+        entry.comment = commentLength ? r.readString(commentLength, "utf8") : "";
+        
+        return r.position;
     },
     
-    toBuffer(fields) {
+    toBuffer(entry) {
     
-        var data = new Buffer(
-            CENHDR + 
-            fields.fileNameLength + 
-            fields.extraLength + 
-            fields.commentLength);
-        
-        data.writeUInt32LE(CENSIG, 0);
-        data.writeUInt16LE(fields.versionMadeBy, CENVEM);
-        data.writeUInt16LE(fields.version, CENVER);
-        data.writeUInt16LE(fields.flags, CENFLG);
-        data.writeUInt16LE(fields.method, CENHOW);
-        data.writeUInt32LE(toZipTime(fields.lastModified), CENTIM);
-        data.writeInt32LE(fields.crc32, CENCRC, true);
-        data.writeUInt32LE(fields.compressedSize, CENSIZ);
-        data.writeUInt32LE(fields.size, CENLEN);
-        data.writeUInt16LE(fields.fileNameLength, CENNAM);
-        data.writeUInt16LE(fields.extraLength, CENEXT);
-        data.writeUInt16LE(fields.commentLength, CENCOM);
-        data.writeUInt16LE(fields.startDisk, CENDSK);
-        data.writeUInt16LE(fields.internalAttributes, CENATT);
-        data.writeUInt32LE(fields.attributes, CENATX);
-        data.writeUInt32LE(fields.offset, CENOFF);
-        
-        return data;
-    },
+        var fileNameLength = Buffer.byteLength(entry.name);
+        var extraLength = entry.extra ? entry.extra.length : 0;
+        var commentLength = Buffer.byteLength(this.comment);
     
-    LENGTH: CENHDR
+        var w = new BufferWriter(new Buffer(
+            FIXED_LENGTH + 
+            fileNameLength + 
+            extraLength + 
+            commentLength));
+        
+        w.writeUInt32LE(SIGNATURE);
+        w.writeUInt16LE(entry.versionMadeBy);
+        w.writeUInt16LE(entry.version);
+        w.writeUInt16LE(entry.flags);
+        w.writeUInt16LE(entry.method);
+        w.writeUInt32LE(toZipTime(entry.lastModified));
+        w.writeInt32LE(entry.crc32, true);
+        w.writeUInt32LE(entry.compressedSize);
+        w.writeUInt32LE(entry.size);
+        w.writeUInt16LE(fileNameLength);
+        w.writeUInt16LE(extraLength);
+        w.writeUInt16LE(commentLength);
+        w.writeUInt16LE(entry.startDisk);
+        w.writeUInt16LE(entry.internalAttributes);
+        w.writeUInt32LE(entry.attributes);
+        w.writeUInt32LE(entry.offset);
+        
+        if (fileNameLength) w.writeString(entry.name);
+        if (extraLength) w.write(entry.extra);
+        if (commentLength) w.writeString(entry.comment);
+        
+        return w.buffer;
+    }
 };

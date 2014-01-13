@@ -49,56 +49,15 @@ export class ZipEntry {
     
     readHeader(buffer) {
     
-        // Read the fixed-size portion of the header
-        var header = EntryHeader.fromBuffer(buffer),
-            offset = EntryHeader.LENGTH;
-        
-        // Set entry fields
-        Object.keys(header).forEach(key => {
-        
-            if (this[key] !== void 0)
-                this[key] = header[key];
-        });
-            
-        // Read file name field
-        if (header.fileNameLength) {
-        
-            this.name = buffer.toString("utf8", offset, offset += header.fileNameLength);
-        }
-        
-        // Read extra data fields
-        if (header.extraLength) {
-        
-            this.extra = new Buffer(header.extraLength);
-            buffer.copy(this.extra, 0, offset, offset += header.extraLength);
-        }
-        
-        // Read entry comment
-        if (header.commentLength) {
-        
-            this.comment = buffer.toString("utf8", offset, offset += header.commentLength);
-        }
-        
-        return offset;
+        return EntryHeader.fromBuffer(buffer, this);
     }
     
-    writeHeader() {
+    packHeader() {
     
-        this._setLengthFields();
-    
-        var buffer = EntryHeader.toBuffer(this),
-            writer = new BufferWriter(buffer);
-        
-        writer.position = EntryHeader.LENGTH;
-        
-        this.name && writer.writeString(this.name);
-        this.extra && writer.write(this.extra);
-        this.comment && writer.writeString(this.comment);
-        
-        return buffer;
+        return EntryHeader.toBuffer(this);
     }
     
-    writeDataHeader() {
+    packDataHeader() {
     
         this._setLengthFields();
         
@@ -113,7 +72,7 @@ export class ZipEntry {
         return buffer;
     }
     
-    writeDataDescriptor() {
+    packDataDescriptor() {
     
         return DataDescriptor.toBuffer(this);
     }
@@ -158,7 +117,7 @@ export class ZipEntry {
         this.offset = outStream.position;
         
         // Write the data header
-        await outStream.write(this.writeDataHeader());
+        await outStream.write(this.packDataHeader());
         
         var count, data;
         
@@ -182,7 +141,7 @@ export class ZipEntry {
         this.compressedSize = compressed;
         this.size = size;
     
-        await outStream.write(this.writeDataDescriptor());
+        await outStream.write(this.packDataDescriptor());
         
         return this;
     }
