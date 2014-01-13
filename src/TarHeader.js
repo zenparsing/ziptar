@@ -23,14 +23,12 @@ var CHECKSUM_START = 148,
     SPACE_VAL = " ".charCodeAt(0),
     SLASH_VAL = "/".charCodeAt(0);
 
-
 class FieldWriter {
 
     constructor(buffer) {
     
         this.buffer = buffer;
         this.position = 0;
-        this.overflow = false;
     }
     
     skip(length) {
@@ -58,12 +56,7 @@ class FieldWriter {
         for (var i = count; i < length; ++i)
             this.buffer[i] = 0;
         
-        this.position += length; 
-        
-        // Extended headers are required if the value contains non-ASCII
-        // characters or if the value cannot completely fit within field
-        if (value.length !== byteLength || count !== byteLength)
-            this.overflow = true;
+        this.position += length;
     }
     
     number(value, length) {
@@ -230,31 +223,77 @@ function splitPath(path) {
 
     var b = new Buffer(path),
         name = path,
-        prefix = "";
+        prefix = "",
+        unicode = b.length !== path.length,
+        overflow = unicode;
     
-    if (b.length <= NAME || b.length > NAME + PREFIX + 1)
-        return { name, prefix };
+    // If name cannot fit completely within name field...
+    if (b.length > NAME) {
     
-    // Scan for a "/" from the 101th byte from the end to the 
-    // next to last byte
-    for (var i = b.length - (NAME + 1); i < b.length - 1; ++i) {
+        overflow = true;
+    
+        // If name is small enough to be split...
+        if (b.length - 1 <= NAME + PREFIX) {
         
-        if (b[i] === SLASH_VAL) {
+            // Scan for a "/" from the 101th byte from the end to the 
+            // next to last byte
+            for (var i = b.length - (NAME + 1); i < b.length - 1; ++i) {
         
-            prefix = b.toString("utf8", 0, i);
-            name = b.toString("utf8", i + 1, b.length);
-            break;
+                if (b[i] === SLASH_VAL) {
+        
+                    prefix = b.toString("utf8", 0, i);
+                    name = b.toString("utf8", i + 1, b.length);
+                    overflow = unicode;
+                    break;
+                }
+            }
         }
     }
+        
+    return { name, prefix, overflow };
+}
+
+class Overflow {
+
+    constructor(header) {
     
-    return { name, prefix };
+        this.header = header;
+        this.fields = {};
+    }
+
+    name(field) {
+    
+        this.test(field, v => splitPath(v).overflow);
+    }
+    
+    text(field, length) {
+    
+        this.test(field, v => {
+        
+            var bytes = (new Buffer(v)).length;
+            return bytes > text.length || bytes > length;
+        });
+    }
+    
+    number(field, length) {
+    
+        this.test(field, v => v < 0 || v > Math.pow(8, length - 1) - 1);
+    }
+    
+    test(field, pred) {
+    
+        var v = this.header[field];
+        
+        if (pred(v))
+            this.fields[field] = v;
+    }
 }
 
 export class TarHeader {
 
-    constructor(path) {
+    constructor(name) {
     
-        this.path = path || "";
+        this.name = name || "";
         this.mode = 0;
         this.userID = 0;
         this.groupID = 0;
@@ -268,18 +307,21 @@ export class TarHeader {
         this.deviceMinor = 0;
     }
     
-    pack(buffer) {
+    write(buffer) {
     
-        if (buffer.length < 512)
-            throw new Error("Invalid buffer size");
+        if (buffer === void 0)
+            buffer = new Buffer(HEADER_SIZE);
+        else if (buffer.length < HEADER_SIZE)
+            throw new Error("Insufficient buffer");
         
         var w = new FieldWriter(buffer);
-        var path = splitPath(normalizePath(this.path));
+        var path = splitPath(normalizePath(this.name));
         
         w.text(path.name, NAME);
         w.number(this.mode & 0x1FF, MODE);
         w.number(this.userID, OWNER);
         w.number(this.groupID, GROUP);
+        w.number(this.size, SIZE);
         w.date(this.lastModified, MODIFIED);
         w.skip(CHECKSUM);
         w.text(this.type, TYPE);
@@ -298,41 +340,64 @@ export class TarHeader {
         w.position = CHECKSUM_START;
         w.number(Checksum.compute(buffer).signed);
         
-        // TODO: Handle w.overflow with extended headers
-        
         return buffer;
     }
     
-    static unpack(buffer) {
+    getExtendedFields() {
     
-        if (buffer.length < 512)
+        var over = new Overflow(this);
+        
+        over.name("name");
+        over.number("size", SIZE);
+        over.text("linkPath", LINK_PATH);
+        over.text("userName", OWNER_NAME);
+        over.text("groupName", GROUP_NAME);
+        
+        return over.fields;
+    }
+    
+    static fromEntry(entry) {
+    
+        var h = new this();
+        
+        Object.keys(h).forEach(k => entry[k] !== void 0 && (h[k] = entry[k]));
+        
+        return h;
+    }
+    
+    static fromBuffer(buffer) {
+    
+        if (buffer === void 0)
+            buffer = new Buffer(HEADER_SIZE);
+        else if (buffer.length < HEADER_SIZE)
             throw new Error("Invalid buffer size");
         
         var r = new FieldReader(buffer);
-        var f = new TarHeader;
+        var h = new this;
         
-        f.path = r.text(NAME);
-        f.mode = r.number(MODE);
-        f.userID = r.number(OWNER);
-        f.groupID = r.number(GROUP);
-        f.lastModified = r.date(MODIFIED);
+        h.name = r.text(NAME);
+        h.mode = r.number(MODE);
+        h.userID = r.number(OWNER);
+        h.groupID = r.number(GROUP);
+        h.size = r.number(SIZE);
+        h.lastModified = r.date(MODIFIED);
         
         if (!Checksum.match(data, r.number(CHECKSUM)))
             throw new Error("Invalid checksum");
         
-        f.type = r.text(TYPE);
-        f.linkPath = r.text(LINK_PATH);
+        h.type = r.text(TYPE);
+        h.linkPath = r.text(LINK_PATH);
         
         // Stop here if magic "ustar" field is not set
         if (r.text(MAGIC) !== "ustar"))
-            return f;
+            return h;
         
         r.next(VERSION);
         
-        f.userName = r.text(OWNER_NAME);
-        f.groupName = r.text(GROUP_NAME);
-        f.deviceMajor = r.number(DEV_MAJOR);
-        f.deviceMinor = r.number(DEV_MINOR);
+        h.userName = r.text(OWNER_NAME);
+        h.groupName = r.text(GROUP_NAME);
+        h.deviceMajor = r.number(DEV_MAJOR);
+        h.deviceMinor = r.number(DEV_MINOR);
         
         // TODO: node-tar attempts to parse out file access time and file creation time
         // attributes from the 130th char of this field.  Should we?
@@ -340,10 +405,10 @@ export class TarHeader {
         var prefix = r.text(PREFIX);
         
         if (prefix)
-            f.path = prefix + "/" + f.path;
+            h.name = prefix + "/" + h.name;
         
-        f.path = normalizePath(f.path);
+        h.name = normalizePath(h.name);
         
-        return f;
+        return h;
     }
 }
