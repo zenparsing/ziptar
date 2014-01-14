@@ -1,4 +1,5 @@
 import { normalizePath } from "Utilities.js";
+import { TarExtended } from "TarExtended.js";
 
 var NAME = 100,
     MODE = 8,
@@ -258,7 +259,7 @@ class Overflow {
     constructor(header) {
     
         this.header = header;
-        this.fields = {};
+        this.fields = new TarExtended;
     }
 
     name(field) {
@@ -343,7 +344,7 @@ export class TarHeader {
         return buffer;
     }
     
-    getExtendedFields() {
+    getOverflow() {
     
         var over = new Overflow(this);
         
