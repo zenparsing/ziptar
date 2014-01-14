@@ -1,11 +1,39 @@
 import { runTests } from "package:moon-unit";
 import { TarExtended } from "../../src/TarExtended.js";
+import { TarHeader } from "../../src/TarHeader.js";
 
 export async main() {
 
     await runTests({
     
-        "TarExtended"(test) {
+        "Header Overflow"(test) {
+        
+            var header, fields;
+            
+            header = new TarHeader("abcdefg");
+            header.lastModified = new Date(1);
+            header.size = Math.pow(8, 11) - 1;
+            
+            fields = header.getOverflow();
+            
+            test._("Non-overflowing fields aren't generated").equals(fields, {});
+            
+            header = new TarHeader("abcdeƒg");
+            header.lastModified = new Date(-10000);
+            header.size = Math.pow(8, 11);
+            
+            fields = header.getOverflow();
+            
+            test._("Overflowing fields are generated").equals(fields, {
+            
+                name: header.name,
+                lastModified: header.lastModified,
+                size: header.size
+            });
+            
+        },
+    
+        "Extended Attributes"(test) {
         
             var fields = { 
             

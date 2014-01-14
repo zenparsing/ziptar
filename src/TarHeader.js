@@ -170,7 +170,7 @@ class FieldReader {
     
         // Binary numbers should always have highest bit set
         if (b[0] === 0xFF) neg = true;
-        else if b[0] !== 0x80) return NaN;
+        else if (b[0] !== 0x80) return NaN;
     
         // Reading from last position to first...
         for (var i = length - 1; i > 0; --i) {
@@ -275,13 +275,17 @@ class Overflow {
         this.test(field, v => {
         
             var bytes = (new Buffer(v)).length;
-            return bytes > text.length || bytes > length;
+            return bytes > v.length || bytes > length;
         });
     }
     
     number(field, length) {
     
-        this.test(field, v => v < 0 || v > Math.pow(8, length - 1) - 1);
+        this.test(field, v => {
+        
+            if (v && v.getTime) v = v.getTime() / 1000;
+            return v < 0 || v > Math.pow(8, length - 1) - 1
+        });
     }
     
     test(field, pred) {
@@ -297,7 +301,7 @@ export class TarHeader {
 
     constructor(name) {
     
-        this.name = name || "";
+        this.name = normalizePath(name || "");
         this.mode = 0;
         this.userID = 0;
         this.groupID = 0;
@@ -353,6 +357,7 @@ export class TarHeader {
         
         over.name("name");
         over.number("size", SIZE);
+        over.number("lastModified", MODIFIED);
         over.text("linkPath", LINK_PATH);
         over.text("userName", OWNER_NAME);
         over.text("groupName", GROUP_NAME);
@@ -393,7 +398,7 @@ export class TarHeader {
         h.linkPath = r.text(LINK_PATH);
         
         // Stop here if magic "ustar" field is not set
-        if (r.text(MAGIC) !== "ustar"))
+        if (r.text(MAGIC) !== "ustar")
             return h;
         
         r.next(VERSION);
