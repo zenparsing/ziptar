@@ -62,6 +62,9 @@ class FieldWriter {
     
     number(value, length) {
     
+        // Field numbers should be integers
+        value = Math.floor(value);
+        
         // Numbers greater that maximum or less than zero are binary encoded
         if (value < 0 || value > Math.pow(8, length - 1) - 1)
             return this.binaryNumber(value, length);
@@ -259,7 +262,7 @@ class Overflow {
     constructor(header) {
     
         this.header = header;
-        this.fields = new TarExtended;
+        this.fields = {};
     }
 
     name(field) {
@@ -413,3 +416,4 @@ export class TarHeader {
         return h;
     }
 }
+

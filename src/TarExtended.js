@@ -3,13 +3,16 @@ var HAS = Object.prototype.hasOwnProperty,
     NL = "\n".charCodeAt(0),
     EQ = "=".charCodeAt(0);
 
+var NUMERIC_FIELD = /^(size|uid|gid)$/,
+    DATE_FIELD = /^[amc]time$/;
+
 export class TarExtended {
     
     static write(fields) {
     
         return new Buffer(Object.keys(fields).map(k => {
         
-            var line = ` ${ k }=${ fields[k].toString() }\n`,
+            var line = ` ${ k }=${ stringify(fields[k]) }\n`,
                 base = Buffer.byteLength(line),
                 len = base,
                 lenStr;
@@ -20,6 +23,14 @@ export class TarExtended {
             return len.toString() + line;
             
         }).join(""))
+        
+        function stringify(value) {
+        
+            if (value instanceof Date)
+                value = value.getTime() / 1000;
+            
+            return value.toString();
+        }
     }
     
     static read(buffer) {
@@ -41,7 +52,10 @@ export class TarExtended {
             val = readValue();
             tryRead(NL);
             
-            fields[key] = val;
+            fields[key] = 
+                NUMERIC_FIELD.test(key) ? parseFloat(val) : 
+                DATE_FIELD.test(key) ? new Date(parseFloat(val) * 1000) :
+                val;
         }
         
         return fields;
@@ -69,7 +83,8 @@ export class TarExtended {
         
         function peek() { return buffer[pos] }
         function read() { return buffer[pos++] }
-        function tryRead(v) { peek() === v && read() }
+        function tryRead(v) { buffer[pos] === v && ++pos }
     }
     
 }
+
