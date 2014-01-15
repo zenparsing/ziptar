@@ -102,7 +102,7 @@ class FieldWriter {
         if (value < 0) {
         
             // For negative numbers, we will encode the 2's complement by
-            // subtracting one from the absolute value and encoding the 
+            // subtracting one from the absolute value and then encoding the 
             // 1's complement of that number. 
             
             neg = true;
@@ -110,7 +110,7 @@ class FieldWriter {
         }
         
         // Writing from the last position to first...
-        for (var i = length; i > 0; --i) {
+        for (var i = length - 1; i > 0; --i) {
         
             x = value % 256;
             
@@ -182,7 +182,7 @@ class FieldReader {
             val += x * Math.pow(256, pos++);
         }
         
-        // Find 2's complement by adding 1
+        // Find 2's complement by adding 1 and negating
         if (neg)
             val = -1 * (val + 1);
             
