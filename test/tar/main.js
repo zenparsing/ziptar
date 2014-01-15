@@ -30,7 +30,6 @@ export async main() {
                 lastModified: header.lastModified,
                 size: header.size
             });
-            
         },
     
         "Extended Attributes"(test) {

@@ -52,12 +52,10 @@ class FieldWriter {
             count = Math.min(length, byteLength);
         
         this.buffer.write(value, this.position, count, "utf8");
+        this.position += count;
         
         // Fill with NULLs
-        for (var i = count; i < length; ++i)
-            this.buffer[i] = 0;
-        
-        this.position += length;
+        this.zero(length - count);
     }
     
     number(value, length) {
@@ -77,7 +75,7 @@ class FieldWriter {
         
             // Add a space after the number, and pad remaining
             // characters with "0"
-            if (!space) { n = n + " "; space = false; }
+            if (!space) { n = n + " "; space = true; }
             else n = "0" + n;
         }
         
@@ -92,12 +90,12 @@ class FieldWriter {
     
     date(value, length) {
     
-        return this.number(value.getTime() / 1000);
+        return this.number(value.getTime() / 1000, length);
     }
     
     binaryNumber(value, length) {
     
-        var b = this.data.slice(this.position, this.position += length),
+        var b = this.buffer.slice(this.position, this.position += length),
             neg = false,
             x;
         
@@ -143,13 +141,13 @@ class FieldReader {
     
     text(length) {
     
-        return this.next(length).toString("utf8").replace(/\0+*$/, "").trim();
+        return this.next(length).toString("utf8").replace(/\0+$/, "").trim();
     }
     
     number(length) {
     
         // Binary numbers have the first bit set
-        if (this.data[this.position] & 0x80)
+        if (this.buffer[this.position] & 0x80)
             return this.binaryNumber(length);
         
         return parseInt(this.text(length), 8);
@@ -209,7 +207,7 @@ class Checksum {
     
         return { signed, unsigned };
     
-        function add(val) {
+        function sum(val) {
     
             signed += val >= 0x80 ? (val - 256) : val;
             unsigned += val;
@@ -218,7 +216,7 @@ class Checksum {
     
     static match(data, value) {
     
-        var sum = this.compute();
+        var sum = this.compute(data);
         return sum.signed === value || sum.unsigned === value;
     }
 }
@@ -334,7 +332,7 @@ export class TarHeader {
         w.skip(CHECKSUM);
         w.text(this.type, TYPE);
         w.text(this.linkPath, LINK_PATH);
-        w.text("ustar ", MAGIC)
+        w.text("ustar ", MAGIC);
         w.text("00", VERSION);
         w.text(this.userName, OWNER_NAME);
         w.text(this.groupName, GROUP_NAME);
@@ -346,7 +344,7 @@ export class TarHeader {
         // Calculate and store checksum after everything else
         // has been written
         w.position = CHECKSUM_START;
-        w.number(Checksum.compute(buffer).signed);
+        w.number(Checksum.compute(buffer).signed, CHECKSUM);
         
         return buffer;
     }
@@ -391,7 +389,7 @@ export class TarHeader {
         h.size = r.number(SIZE);
         h.lastModified = r.date(MODIFIED);
         
-        if (!Checksum.match(data, r.number(CHECKSUM)))
+        if (!Checksum.match(buffer, r.number(CHECKSUM)))
             throw new Error("Invalid checksum");
         
         h.type = r.text(TYPE);
