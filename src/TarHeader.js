@@ -141,7 +141,7 @@ class FieldReader {
     
     text(length) {
     
-        return this.next(length).toString("utf8").replace(/\0+$/, "").trim();
+        return this.next(length).toString("utf8").replace(/\0\S*$/, "").trim();
     }
     
     number(length) {
@@ -167,8 +167,8 @@ class FieldReader {
             x;
     
         // Binary numbers should always have highest bit set
-        if (b[0] === 0xFF) neg = true;
-        else if (b[0] !== 0x80) return NaN;
+        if (b[0] == 0xFF) neg = true;
+        else if (b[0] != 0x80) return NaN;
     
         // Reading from last position to first...
         for (var i = length - 1; i > 0; --i) {
@@ -217,7 +217,7 @@ class Checksum {
     static match(data, value) {
     
         var sum = this.compute(data);
-        return sum.signed === value || sum.unsigned === value;
+        return sum.signed == value || sum.unsigned == value;
     }
 }
 
@@ -241,7 +241,7 @@ function splitPath(path) {
             // next to last byte
             for (var i = b.length - (NAME + 1); i < b.length - 1; ++i) {
         
-                if (b[i] === SLASH_VAL) {
+                if (b[i] == SLASH_VAL) {
         
                     prefix = b.toString("utf8", 0, i);
                     name = b.toString("utf8", i + 1, b.length);
@@ -362,6 +362,8 @@ export class TarHeader {
         
         return over.fields;
     }
+    
+    static LENGTH() { return HEADER_SIZE }
     
     static fromEntry(entry) {
     

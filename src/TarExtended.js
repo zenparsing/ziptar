@@ -33,10 +33,12 @@ export class TarExtended {
         }
     }
     
-    static read(buffer) {
+    static read(buffer, fields) {
     
-        var fields = {},
-            pos = 0,
+        if (fields == null)
+            fields = {};
+            
+        var pos = 0,
             next,
             key,
             val;
@@ -78,12 +80,12 @@ export class TarExtended {
         
             var start = pos, last = 0;
             while (pos < next) last = read();
-            return buffer.toString("utf8", start, last === NL ? pos - 1 : pos);
+            return buffer.toString("utf8", start, last == NL ? pos - 1 : pos);
         }
         
         function peek() { return buffer[pos] }
         function read() { return buffer[pos++] }
-        function tryRead(v) { buffer[pos] === v && ++pos }
+        function tryRead(v) { buffer[pos] == v && ++pos }
     }
     
 }
