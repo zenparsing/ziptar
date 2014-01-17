@@ -24,6 +24,32 @@ var CHECKSUM_START = 148,
     SPACE_VAL = " ".charCodeAt(0),
     SLASH_VAL = "/".charCodeAt(0);
 
+var headerTypes = {
+
+    "0": "file",
+    "1": "link",
+    "2": "symlink",
+    "3": "character-device",
+    "4": "block-device",
+    "5": "directory",
+    "6": "fifo",
+    "7": "contiguous-file",
+    "g": "global-attributes",
+    "x": "file-attributes",
+    "A": "solaris-acl",
+    "D": "gnu-directory",
+    "I": "inode",
+    "K": "long-link-name",
+    "L": "long-path-name",
+    "M": "continuation-file",
+    "N": "old-long-path-name",
+    "S": "sparse-file",
+    "V": "tape-volumn-header",
+    "X": "old-attributes"
+};
+
+Object.keys(headerTypes).forEach(k => { headerTypes[headerTypes[k]] = k });
+
 class FieldWriter {
 
     constructor(buffer) {
@@ -305,7 +331,7 @@ export class TarHeader {
         this.groupID = 0;
         this.size = 0;
         this.lastModified = new Date();
-        this.type = "0";
+        this.type = "file";
         this.linkPath = "";
         this.userName = "";
         this.groupName = "";
@@ -330,7 +356,7 @@ export class TarHeader {
         w.number(this.size, SIZE);
         w.date(this.lastModified, MODIFIED);
         w.skip(CHECKSUM);
-        w.text(this.type, TYPE);
+        w.text(headerTypes[this.type] || "0", TYPE);
         w.text(this.linkPath, LINK_PATH);
         w.text("ustar ", MAGIC);
         w.text("00", VERSION);
@@ -394,7 +420,7 @@ export class TarHeader {
         if (!Checksum.match(buffer, r.number(CHECKSUM)))
             throw new Error("Invalid checksum");
         
-        h.type = r.text(TYPE);
+        h.type = headerTypes[r.text(TYPE)] || "file";
         h.linkPath = r.text(LINK_PATH);
         
         // Stop here if magic "ustar" field is not set
