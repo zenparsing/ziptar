@@ -56,43 +56,50 @@ export class FileStream {
         return this.close();
     }
     
-    async readBytes(count) {
-    
-        var buffer = new Buffer(count);
-        var bytes = await this.read(buffer, 0, count);
-        
-        return bytes < count ? buffer.slice(0, bytes) : buffer;
-    }
-    
     async read(buffer, start, length) {
     
         this._assertOpen();
         
         if (start === void 0) start = 0;
-        if (length === void 0) length = (buffer.length - start);
+        if (length === void 0) length = buffer.length - start;
         
         var offset = this.position;
         this.position = Math.min(this.size, this.position + length);
         
         this.pending += 1;
         
-        return this._startOp($=> AsyncFS.read(this.file, buffer, start, length, offset));
+        var count = await this._startOp($=> AsyncFS.read(
+            this.file, 
+            buffer, 
+            start, 
+            length, 
+            offset));
+        
+        return count === 0 ? null : buffer.slice(start, count);
     }
     
     async write(buffer, start, length) {
     
         this._assertOpen();
         
+        if (!buffer || buffer.length === 0)
+            return;
+        
         if (start === void 0) start = 0;
-        if (length === void 0) length = (buffer.length - start);
+        if (length === void 0) length = buffer.length - start;
         
         var offset = this.position;
         this.position = this.position + length;
 
-        return this._startOp($=> AsyncFS.write(this.file, buffer, start, length, offset));
+        return this._startOp($=> AsyncFS.write(
+            this.file, 
+            buffer, 
+            start, 
+            length, 
+            offset));
     }
     
-    seek(offset) {
+    async seek(offset) {
     
         this._assertOpen();
         

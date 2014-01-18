@@ -325,10 +325,10 @@ export class ZipFile {
         var end = file.size - EndHeader.LENGTH, // Last possible location of start of end header
             start = Math.max(0, end - 0xffff); // First possible location of start of end header
         
-        file.seek(start);
+        await file.seek(start);
         
         // Read the end-of-central-directory header
-        var buffer = await file.readBytes(file.size - start),
+        var buffer = await file.read(new Buffer(file.size - start)),
             offset = -1,
             i;
         
@@ -340,14 +340,14 @@ export class ZipFile {
                 continue;
             
             // Look for header start value
-            if (buffer.readUInt32LE(i) === EndHeader.SIGNATURE) {
+            if (buffer.readUInt32LE(i) == EndHeader.SIGNATURE) {
             
                 offset = i;
                 break;
             }
         }
         
-        if (offset === -1)
+        if (offset == -1)
             throw new Error("Cannot find header start");
         
         endOffset = start + offset;
@@ -364,10 +364,10 @@ export class ZipFile {
         
         // === Read the Entry Headers ===
         
-        file.seek(header.offset);
+        await file.seek(header.offset);
         
         // Read all file entires into a single buffer
-        buffer = await file.readBytes(endOffset - header.offset);
+        buffer = await file.read(new Buffer(endOffset - header.offset));
             
         var count = 0,
             entry;

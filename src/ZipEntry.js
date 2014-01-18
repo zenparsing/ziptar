@@ -132,16 +132,14 @@ export class ZipEntry {
         // Write the data header
         await outStream.write(this.writeDataHeader());
         
-        var count, data;
+        var data;
         
         // Read the file, one buffer at a time
-        while (count = await inStream.read(buffer)) {
+        while (data = await inStream.read(buffer)) {
         
-            data = buffer.slice(0, count);
-            
             // Accumulate data for the raw input
             crc.accumulate(data);
-            size += count;
+            size += data.length;
             
             // Write data into compression stream
             await zipStream.write(data);
@@ -164,15 +162,15 @@ export class ZipEntry {
         if (this.isDirectory)
             throw new Error("Entry is not a file");
         
-        var count, dataHeader;
+        var chunk, dataHeader;
         
         // === Read the Data Header ===
         
-        fileStream.seek(this.offset);
-        count = await fileStream.read(buffer, 0, DataHeader.LENGTH);
-        dataHeader = DataHeader.fromBuffer(buffer);
+        await fileStream.seek(this.offset);
+        chunk = await fileStream.read(buffer, 0, DataHeader.LENGTH);
+        dataHeader = DataHeader.fromBuffer(chunk);
         
-        fileStream.seek(this.offset + dataHeader.headerSize);
+        await fileStream.seek(this.offset + dataHeader.headerSize);
         
         var zipStream, zipFinish, crc;
         
@@ -211,10 +209,10 @@ export class ZipEntry {
         
             // Read the next chunk
             length = Math.min(buffer.length, end - fileStream.position);
-            count = await fileStream.read(buffer, 0, length);
+            chunk = await fileStream.read(buffer, 0, length);
             
             // Write chunk into decompressor
-            data = await zipStream.write(buffer.slice(0, count));
+            data = await zipStream.write(chunk);
         }
         
         await zipStream.end();

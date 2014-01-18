@@ -30,43 +30,42 @@ class ZipStream extends EventTarget {
         });
     }
     
-    write(buffer) {
+    async read(buffer, start, length) {
     
-        var async = this._async();
         
-        this.zlib.write(buffer, async.callback);
-        return async.promise;
+        if (start === void 0) start = 0;
+        if (length === void 0) length = buffer.length - start;
     }
     
-    end() {
+    async write(buffer, start, length) {
+    
+        if (start === void 0) start = 0;
+        if (length === void 0) length = buffer.length - start;
+        
+        await this._async(cb => this.zlib.write(buffer.slice(start, length), cb));
+    }
+    
+    async end() {
 
-        var async = this._async();
+        await this._async(cb => {
         
-        this.zlib.on("end", async.callback);
-        this.zlib.end();
-        
-        return async.promise;
+            this.zlib.on("end", cb);
+            this.zlib.end();
+        });
     }
     
-    _async() {
+    _async(fn) {
     
-        var resolver,
-            promise = new Promise((resolve, reject) => resolver = { resolve, reject }),
-            onErr = err => resolver.reject(err);
+        return new Promise((resolve, reject) => {
         
-        this.zlib.on("error", onErr);
-        
-        return { 
-        
-            callback: $=> {
-        
-                this.zlib.removeListener("error", onErr);
-                resolver.resolve(null);
-            },
+            this.zlib.on("error", reject);
             
-            promise
+            fn($=> {
             
-        };
+                this.zlib.removeListener("error", reject);
+                resolve(null);
+            });
+        });
     }
 }
 
@@ -93,16 +92,19 @@ export class NullStream extends EventTarget {
         super();
     }
     
-    write(data) {
+    async write(buffer, start, length) {
     
-        if (data)
-            this.dispatchEvent(new DataEvent(data));
+        if (start === void 0) start = 0;
+        if (length === void 0) length = (buffer.length - start);
         
-        return Promise.resolve(null);
+        await 0; // v8 does not yet support empty yield
+        
+        if (buffer)
+            this.dispatchEvent(new DataEvent(buffer.slice(start, length)));
     }
     
-    end() {
+    async end() {
     
-        return this.write(null);
+        await this.write();
     }
 }
