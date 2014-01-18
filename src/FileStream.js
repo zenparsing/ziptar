@@ -33,8 +33,6 @@ export class FileStream {
         this.file = fd;
         this.path = path;
         this.size = info ? info.size : 0;
-        
-        return this;
     }
     
     async close() {
@@ -47,13 +45,11 @@ export class FileStream {
             await this.pending.promise;
             await AsyncFS.close(fd);
         }
-        
-        return this;
     }
 
     async end() {
     
-        return this.close();
+        await this.close();
     }
     
     async read(buffer, start, length) {
@@ -107,6 +103,13 @@ export class FileStream {
             throw new Error("Invalid file offset");
         
         this.position = offset;
+    }
+    
+    static async open(path, flags, mode) {
+    
+        var stream = new FileStream;
+        await stream.open(path, flags, mode);
+        return stream;
     }
     
     _assertOpen() {

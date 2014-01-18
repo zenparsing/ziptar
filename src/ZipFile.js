@@ -164,11 +164,10 @@ export class ZipFile {
             return a.toLowerCase().localeCompare(b.toLowerCase());
         });
         
-        var outStream = await new FileStream().open(dest, "w"),
+        var outStream = await FileStream.open(dest, "w"),
             buffer = this._createBuffer(),
             queue = list.slice(0),
             entry,
-            file,
             inStream,
             i;
         
@@ -188,11 +187,9 @@ export class ZipFile {
             } else {
             
                 // Compress file
-                file = new FileStream();
-                inStream = await file.open(entry.source);
-                
+                inStream = await FileStream.open(entry.source);
                 await entry.compress(inStream, outStream, buffer);
-                await file.close();
+                await inStream.end();
             }
         }
         

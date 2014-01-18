@@ -49,7 +49,7 @@ class ZipStream extends EventTarget {
 
         await this._async(cb => {
         
-            this.zlib.on("end", cb);
+            this.zlib.once("end", cb);
             this.zlib.end();
         });
     }
@@ -58,7 +58,7 @@ class ZipStream extends EventTarget {
     
         return new Promise((resolve, reject) => {
         
-            this.zlib.on("error", reject);
+            this.zlib.once("error", reject);
             
             fn($=> {
             
