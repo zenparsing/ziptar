@@ -1,48 +1,26 @@
 import { AsyncFS } from "package:zen-bits";
+import { AsyncGate } from "AsyncGate.js";
 
 export class FileStream {
 
-    constructor() {
+    constructor(fd) {
     
-        this.file = 0;
+        this.fd = fd || 0;
         this.position = 0;
         this.path = "";
-        this.size = 0;
-        this.pending = { count: 0, promise: null, resolve: null };
-    }
-
-    async open(path, flags, mode) {
-    
-        if (this.file)
-            throw new Error("File is currently open");
-        
-        // Wait for any pending file operations to complete
-        // for the previously opened file.
-        await this.pending.promise;
-        
-        var info;
-        
-        try { info = await AsyncFS.stat(path) }
-        catch (x) {}
-        
-        if (info && !info.isFile())
-            throw new Error("File not found");
-        
-        var fd = await AsyncFS.open(path, flags || "r", mode);
-        
-        this.file = fd;
-        this.path = path;
-        this.size = info ? info.size : 0;
+        this.length = 0;
+        this.pending = 0;
+        this.flushGate = new AsyncGate;
     }
     
     async close() {
     
-        if (this.file) {
+        if (this.fd) {
         
-            var fd = this.file;
-            this.file = 0;
+            var fd = this.fd;
+            this.fd = 0;
             
-            await this.pending.promise;
+            await this.flushGate.promise;
             await AsyncFS.close(fd);
         }
     }
@@ -60,12 +38,10 @@ export class FileStream {
         if (length === void 0) length = buffer.length - start;
         
         var offset = this.position;
-        this.position = Math.min(this.size, this.position + length);
-        
-        this.pending += 1;
-        
+        this.position = Math.min(this.length, this.position + length);
+
         var count = await this._startOp($=> AsyncFS.read(
-            this.file, 
+            this.fd, 
             buffer, 
             start, 
             length, 
@@ -85,10 +61,10 @@ export class FileStream {
         if (length === void 0) length = buffer.length - start;
         
         var offset = this.position;
-        this.position = this.position + length;
+        this.position += length;
 
         return this._startOp($=> AsyncFS.write(
-            this.file, 
+            this.fd, 
             buffer, 
             start, 
             length, 
@@ -106,31 +82,41 @@ export class FileStream {
     }
     
     static async open(path, flags, mode) {
-    
-        var stream = new FileStream;
-        await stream.open(path, flags, mode);
+        
+        var info;
+        
+        try { info = await AsyncFS.stat(path) }
+        catch (x) {}
+        
+        if (info && !info.isFile())
+            throw new Error("File not found");
+        
+        var fd = await AsyncFS.open(path, flags || "r", mode),
+            stream = new this(fd);
+        
+        stream.path = path;
+        stream.length = info ? info.size : 0;
+        
         return stream;
     }
     
     _assertOpen() {
     
-        if (!this.file)
+        if (!this.fd)
             throw new Error("File is not open");
     }
     
     _startOp(fn) {
         
-        if (this.pending.count === 0)
-            this.pending.promise = new Promise(resolve => this.pending.resolve = resolve);
-        
-        this.pending.count += 1;
+        this.flushGate.close();
+        this.pending += 1;
         
         var finished = $=> {
         
-            this.pending.count -= 1;
+            this.pending -= 1;
             
-            if (this.pending.count === 0)
-                this.pending.resolve(null);
+            if (this.pending === 0)
+                this.flushGate.open();
         };
         
         var promise = fn();

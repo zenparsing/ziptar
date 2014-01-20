@@ -33,14 +33,13 @@ export class ZipFile {
 
     constructor() {
 
-        this.fileStream = new FileStream;
+        this.fileStream = null;
         this.comment = "";
         this.entries = [];
         this.entryTable = {};
     }
     
-    get file() { return this.fileStream.file; }
-    get size() { return this.fileStream.size; }
+    get length() { return this.fileStream.length; }
     
     getEntryNames() {
     
@@ -165,7 +164,7 @@ export class ZipFile {
         });
         
         var outStream = await FileStream.open(dest, "w"),
-            buffer = this._createBuffer(),
+            buffer = new Buffer(BUFFER_SIZE),
             queue = list.slice(0),
             entry,
             inStream,
@@ -297,9 +296,8 @@ export class ZipFile {
         
         var entry = this.getEntry(name),
             buffer = buffer || this._createBuffer(),
-            outStream = new FileStream;
+            outStream = await FileStream.open(dest, "w");
         
-        await outStream.open(dest, "w");
         await entry.extract(this.fileStream, outStream, buffer);
         await outStream.close();
         await AsyncFS.utimes(dest, new Date(), entry.lastModified);
@@ -315,17 +313,18 @@ export class ZipFile {
         var file = this.fileStream,
             endOffset;
         
-        await file.open(path);
+        var file = this.fileStream = await FileStream.open(path);
+        var endOffset;
         
         // === Read the Index Header ===
         
-        var end = file.size - EndHeader.LENGTH, // Last possible location of start of end header
+        var end = file.length - EndHeader.LENGTH, // Last possible location of start of end header
             start = Math.max(0, end - 0xffff); // First possible location of start of end header
         
         await file.seek(start);
         
         // Read the end-of-central-directory header
-        var buffer = await file.read(new Buffer(file.size - start)),
+        var buffer = await file.read(new Buffer(file.length - start)),
             offset = -1,
             i;
         
@@ -383,7 +382,8 @@ export class ZipFile {
     
     _assertOpen() {
     
-        if (!this.file)
+        // TODO: Use isOpen property??
+        if (!this.fileStream)
             throw new Error("No open file");
     }
     
@@ -407,6 +407,6 @@ export class ZipFile {
     
     _createBuffer() {
     
-        return new Buffer(Math.min(BUFFER_SIZE, this.fileStream.size || BUFFER_SIZE));
+        return new Buffer(Math.min(BUFFER_SIZE, this.fileStream.length || BUFFER_SIZE));
     }
 }
