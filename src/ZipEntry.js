@@ -202,8 +202,7 @@ export class ZipEntry {
         // === Decompress Data ==
             
         var end = fileStream.position + this.compressedSize,
-            length,
-            data;
+            length;
         
         while (fileStream.position < end) {
         
@@ -212,7 +211,7 @@ export class ZipEntry {
             chunk = await fileStream.read(buffer, 0, length);
             
             // Write chunk into decompressor
-            data = await zipStream.write(chunk);
+            await zipStream.write(chunk);
         }
         
         await zipStream.end();
@@ -224,13 +223,6 @@ export class ZipEntry {
             throw new Error("CRC-32 check failed");
         
         return this;
-    }
-    
-    _setLengthFields() {
-    
-        this.fileNameLength = Buffer.byteLength(this.name);
-        this.extraLength = this.extra ? this.extra.length : 0;
-        this.commentLength = Buffer.byteLength(this.comment);
     }
 
 }

@@ -1,5 +1,5 @@
 import { AsyncFS } from "package:zen-bits";
-import { AsyncGate } from "AsyncGate.js";
+import { Mutex } from "Mutex.js";
 
 export class FileStream {
 
@@ -10,19 +10,22 @@ export class FileStream {
         this.path = "";
         this.length = 0;
         this.pending = 0;
-        this.flushGate = new AsyncGate;
+        this.mutex = new Mutex;
     }
     
     async close() {
     
-        if (this.fd) {
+        if (!this.fd)
+            return;
+        
+        this.mutex.lock($=> {
         
             var fd = this.fd;
             this.fd = 0;
-            
-            await this.flushGate.promise;
+        
+            await this.flushed.wait();
             await AsyncFS.close(fd);
-        }
+        });
     }
 
     async end() {
@@ -32,43 +35,49 @@ export class FileStream {
     
     async read(buffer, start, length) {
     
-        this._assertOpen();
+        return this.mutex.lock($=> {
         
-        if (start === void 0) start = 0;
-        if (length === void 0) length = buffer.length - start;
+            this._assertOpen();
         
-        var offset = this.position;
-        this.position = Math.min(this.length, this.position + length);
+            if (start === void 0) start = 0;
+            if (length === void 0) length = buffer.length - start;
+        
+            var offset = this.position;
+            this.position = Math.min(this.length, this.position + length);
 
-        var count = await this._startOp($=> AsyncFS.read(
-            this.fd, 
-            buffer, 
-            start, 
-            length, 
-            offset));
+            var count = await AsyncFS.read(
+                this.fd, 
+                buffer, 
+                start, 
+                length, 
+                offset);
         
-        return count === 0 ? null : buffer.slice(start, count);
+            return count === 0 ? null : buffer.slice(start, count);
+        });
     }
     
     async write(buffer, start, length) {
     
-        this._assertOpen();
+        return this.mutex.lock($=> {
         
-        if (!buffer || buffer.length === 0)
-            return;
+            this._assertOpen();
         
-        if (start === void 0) start = 0;
-        if (length === void 0) length = buffer.length - start;
+            if (!buffer || buffer.length === 0)
+                return;
         
-        var offset = this.position;
-        this.position += length;
+            if (start === void 0) start = 0;
+            if (length === void 0) length = buffer.length - start;
+        
+            var offset = this.position;
+            this.position += length;
 
-        return this._startOp($=> AsyncFS.write(
-            this.fd, 
-            buffer, 
-            start, 
-            length, 
-            offset));
+            return AsyncFS.write(
+                this.fd, 
+                buffer, 
+                start, 
+                length, 
+                offset);
+        });
     }
     
     async seek(offset) {
@@ -106,21 +115,4 @@ export class FileStream {
             throw new Error("File is not open");
     }
     
-    _startOp(fn) {
-        
-        this.flushGate.close();
-        this.pending += 1;
-        
-        var finished = $=> {
-        
-            this.pending -= 1;
-            
-            if (this.pending === 0)
-                this.flushGate.open();
-        };
-        
-        var promise = fn();
-        promise.then(finished, finished);
-        return promise;
-    }
 }
