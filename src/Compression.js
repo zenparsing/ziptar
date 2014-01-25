@@ -49,8 +49,9 @@ class ZipStream {
     
         return this.reading.lock($=> {
         
+            // Null signals end-of-stream
             if (!this.zlib)
-                throw new Error("Stream closed");
+                return null;
         
             if (start !== undefined)
                 buffer = buffer.slice(start, length);
@@ -68,7 +69,7 @@ class ZipStream {
             if (this.error)
                 throw error;
         
-            return b.length === 0 ? null : b;
+            return b;
         });
     }
     

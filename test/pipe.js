@@ -12,11 +12,11 @@ export async main() {
     
         bufferSize: 8 * 1024,
         minBuffers: 1,
-        maxBuffers: 2,
-        end: true
+        maxBuffers: 2
     });
     
-    pipe.connect(output);
+    pipe.connect(output, true);
+    pipe.connect(await FileStream.open(Path.resolve(__dirname, "_pipeout2.js"), "w"), true);
 
     await pipe.start();
     
