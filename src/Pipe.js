@@ -5,6 +5,9 @@ export class Pipe {
 
     constructor(readStream, options) {
     
+        if (!options)
+            options = {};
+        
         this.input = readStream;
         this.outputs = [];
         this.minBuffers = options.minBuffers >>> 0 || 1;
@@ -15,8 +18,12 @@ export class Pipe {
         this.started = false;
         this.bufferFree = new Condition;
         
+        // Allocate initial buffers
         while (this.bufferCount < this.minBuffers)
             this.free[this.bufferCount++] = new Buffer(this.bufferSize);
+        
+        // Set signal to indicate there are buffers on the free list
+        this.bufferFree.set();
     }
     
     connect(writeStream, end) {
@@ -76,10 +83,14 @@ export class Pipe {
                 } else {
                 
                     // Wait until a buffer is freed
-                    await this.bufferFree.wait(true);
+                    await this.bufferFree.wait();
                     buffer = this.free.pop();
                 }
             }
+            
+            // Unset the free signal if free list is empty
+            if (this.free.length === 0) 
+                this.bufferFree.set(false);
             
             // Read from the input stream
             read = await this.input.read(buffer);
@@ -111,12 +122,11 @@ export class Pipe {
                 // Put buffer back on the free list
                 this.free.push(buffer);
                 
-                // If free list was empty, signal readers waiting
-                // on a buffer
-                if (this.free.length === 1)
-                    this.bufferFree.set();
+                // Signal readers waiting on a free buffer
+                this.bufferFree.set();
                 
-                // TODO:  remove unused buffers over minimum threshold
+                // TODO:  remove unused buffers over minimum threshold, but
+                // not too eagerly...
             });
         }
         
