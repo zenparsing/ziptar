@@ -13,7 +13,9 @@ export class Condition {
         if (!this.state)
             return this.deferred.promise.then($=> this.wait(reset));
         
-        if (reset) this.state = false;
+        if (reset) 
+            this.set(false);
+        
         return null;
     }
     
@@ -70,7 +72,7 @@ export class Mutex {
         
         var x;
         
-        try { x = fn() }
+        try { x = await fn() }
         finally { this.leave() }
         
         return x;

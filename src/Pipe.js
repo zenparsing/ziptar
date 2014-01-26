@@ -125,8 +125,14 @@ export class Pipe {
                 // Signal readers waiting on a free buffer
                 this.bufferFree.set();
                 
-                // TODO:  remove unused buffers over minimum threshold, but
+                // TODO: Remove unused buffers over minimum threshold, but
                 // not too eagerly...
+                
+            }, x => {
+            
+                // TODO: Stop flow and propagate error to caller
+                console.log("error!");
+                console.log(x);
             });
         }
         
