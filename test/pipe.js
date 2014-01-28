@@ -28,8 +28,7 @@ export async main() {
     pipe.connect(gzip, true);
     pipe2.connect(output, true);
     
-    pipe.start();
-    await pipe2.start();
+    await (pipe.start(), pipe2.start());
     
     //pipe.connect(await FileStream.open(Path.resolve(__dirname, "_pipeout2.js"), "w"), true);
 

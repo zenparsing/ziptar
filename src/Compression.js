@@ -12,6 +12,13 @@ var modes = {
     "gunzip": Z.GUNZIP   
 }
 
+/*
+
+Should we attempt to fill read buffers?  Or that could be an option.
+That would prevent us
+
+*/
+
 class ZipStream {
 
     constructor(mode) {
@@ -21,8 +28,7 @@ class ZipStream {
         if (modes[mode] === void 0)
             throw new Error("Invalid mode");
         
-        this.error = null;
-        this.buffer = null;
+        this.output = null;
         this.reading = new Mutex;
         this.writing = new Mutex;
         this.hasBuffer = new Condition;
@@ -51,18 +57,15 @@ class ZipStream {
             if (start !== undefined)
                 buffer = buffer.slice(start, length);
         
-            this.buffer = buffer;
+            this.output = buffer;
             
             // Signal that a buffer is ready and wait until buffer is done
             this.hasBuffer.set();
             await this.bufferDone.wait(true);
             
-            // If zlib reported an error, then read fails
-            if (this.error)
-                throw error;
+            var b = this.output;
+            this.output = null;
             
-            var b = this.buffer;
-            this.buffer = null;
             return b;
             
         });
@@ -75,13 +78,11 @@ class ZipStream {
     
     async end() {
     
-        await this._write(new Buffer(0), 0, 0, true);
-        
-        this.zlib.close();
-        this.zlib = null;
+        // Write the final, flushing buffer
+        return await this._write(new Buffer(0), 0, 0, true);
     }
     
-    async _write(buffer, start, length, finish) {
+    async _write(buffer, start, length, end) {
     
         return this.writing.lock($=> {
         
@@ -99,19 +100,19 @@ class ZipStream {
                 var inOffset = start || 0,
                     inLength = length || (buffer.length - inOffset),
                     outOffset = 0,
-                    outLength = this.buffer.length;
+                    outLength = this.output.length;
             
                 // Send a write command to zlib
                 var req = this.zlib.write(
-                    finish ? Z.Z_FINISH : Z.Z_NO_FLUSH,
+                    end ? Z.Z_FINISH : Z.Z_NO_FLUSH,
                     buffer,
                     inOffset,
                     inLength,
-                    this.buffer,
+                    this.output,
                     outOffset,
                     outLength);
             
-                req.buffer = buffer;
+                req.output = buffer;
             
                 // When the command has finished...
                 req.callback = (inLeft, outLeft) => {
@@ -121,14 +122,14 @@ class ZipStream {
                         written += inLength - inLeft;
                 
                         // Notify reader that output buffer is ready
-                        this.buffer = this.buffer.slice(0, outLength - outLeft);
+                        this.output = this.output.slice(0, outLength - outLeft);
                         this.bufferDone.set();
                 
                         if (outLeft === 0) {
                     
-                            // If the output buffer was used, assume that there
+                            // If the output buffer was completely used, assume that there
                             // is more data to write
-                            pump(buffer, buffer.length - inLeft);
+                            await pump(buffer, buffer.length - inLeft);
                     
                         } else {
                 
@@ -141,32 +142,41 @@ class ZipStream {
                         deferred.reject(x);
                     }
                 };
-            
             };
             
             // Set an error handler specific to this write operation
             this.zlib.onerror = (msg, errno) => {
             
-                this.error = new Error(msg);
+                deferred.reject(new Error(msg));
+                
+                // End the stream ungracefully
                 this.zlib = null;
                 
-                // Notify reader that we are done with the output buffer
+                // Signal that we are done with the output buffer
+                this.output = null;
                 this.bufferDone.set();
-                
-                deferred.reject(this.error);
             };
             
             // Start writing data
-            pump(buffer, start, length);
-            
+            await pump(buffer, start, length);
+        
             // Wait for write to complete
             await deferred.promise;
-            
+        
             // Clear the error handler
             this.zlib.onerror = undefined;
             
+            // Close zlib if we are ending the stream
+            if (end) {
+            
+                this.zlib.close();
+                this.zlib = null;
+            }
+        
             return written;
+        
         });
+        
     }
     
 }

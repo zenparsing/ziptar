@@ -59,10 +59,35 @@ export class Pipe {
         if (this.outputs.length === 0)
             throw new Error("Pipe has no outputs");
         
-        var buffer, 
+        var lastWrite = Promise.resolve(),
+            error = null,
+            buffer, 
             read, 
-            writes, 
-            lastWrite;
+            writes;
+        
+        var chainWrites = (list, buffer) => {
+        
+            try {
+            
+                await lastWrite;
+                await Promise.all(list);
+                
+            } catch (x) {
+            
+                // Stop the flow
+                this.started = false;
+            
+                // Store error for throwing when we exit the loop
+                if (!error)
+                    error = x;
+            } 
+            
+            // Put buffer back on the free list
+            this.free.push(buffer);
+        
+            // Signal readers waiting on a free buffer
+            this.bufferFree.set();
+        };
         
         this.started = true;
         
@@ -81,7 +106,7 @@ export class Pipe {
                     buffer = new Buffer(this.bufferSize);
                     
                 } else {
-                
+
                     // Wait until a buffer is freed
                     await this.bufferFree.wait();
                     buffer = this.free.pop();
@@ -97,14 +122,12 @@ export class Pipe {
             
             // Null signals end-of-stream
             if (!read) {
-                            
-                writes = this.outputs.map(out => {
+            
+                // End output streams
+                writes = this.outputs.map(out => out.end ? out.stream.end() : null);
+                lastWrite = chainWrites(writes, buffer);
                 
-                    if (out.end) 
-                        out.stream.end();
-                });
-                
-                lastWrite = Promise.all(writes);
+                // Exit read loop
                 break;
                 
             } else if (read.length === 0) {
@@ -114,30 +137,20 @@ export class Pipe {
             }
             
             // Write to all output streams
-            writes = this.outputs.map(out => out.stream.write(read));
+            writes = this.outputs.map(out => out.stream.write(read, 0, read.length));
             
-            // When all writes are complete...
-            lastWrite = Promise.all(writes).then($=> {
-            
-                // Put buffer back on the free list
-                this.free.push(buffer);
-                
-                // Signal readers waiting on a free buffer
-                this.bufferFree.set();
-                
-                // TODO: Remove unused buffers over minimum threshold, but
-                // not too eagerly...
-                
-            }, x => {
-            
-                // TODO: Stop flow and propagate error to caller
-                console.log("error!");
-                console.log(x);
-            });
+            // Release buffer when all writes are complete...
+            lastWrite = chainWrites(writes, buffer);
         }
+        
+        this.started = false;
         
         // Wait for last batch of "write" or "end" operations to complete
         await lastWrite;
+        
+        // Propagate errors
+        if (error)
+            throw error;
     }
     
     stop() {

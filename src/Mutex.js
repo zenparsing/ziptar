@@ -70,6 +70,7 @@ export class Mutex {
     
         await this.enter();
         
+        // TODO:  do we need try-finally here?  Or just fail altogether?
         var x;
         
         try { x = await fn() }

@@ -41,7 +41,7 @@ export class FileStream {
         
             if (start === void 0) start = 0;
             if (length === void 0) length = buffer.length - start;
-        
+
             var offset = this.position;
             this.position = Math.min(this.length, this.position + length);
 
@@ -51,8 +51,9 @@ export class FileStream {
                 start, 
                 length, 
                 offset);
-        
+            
             return count === 0 ? null : buffer.slice(start, count);
+            
         });
     }
     
