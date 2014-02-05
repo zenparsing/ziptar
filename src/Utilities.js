@@ -1,3 +1,7 @@
+module Path from "node:path";
+
+import { AsyncFS } from "package:zen-bits";
+
 // Returns a normalized path which is valid within an archive
 export function normalizePath(path) {
 
@@ -5,6 +9,34 @@ export function normalizePath(path) {
         .replace(/\\+/g, "/")        // Convert "\" to "/"
         .replace(/\/\/+/g, "/")      // Collapse "//"
         .replace(/^(\w+:)?\//, "")   // Remove absolute prefixes
+}
+
+// Creates a directory, if it doesn't already exist
+export async createDirectory(path, recurse) {
+
+    if (recurse) {
+    
+        var parent = Path.dirname(path);
+    
+        if (parent === ".")
+            parent = "";
+    
+        if (parent && !(await AsyncFS.exists(parent)))
+            await createDirectory(parent, true);
+    }
+        
+    var stat;
+    
+    try { stat = await AsyncFS.stat(path) }
+    catch (x) {}
+    
+    // Verify that destination is not something other than a directory
+    if (stat && !stat.isDirectory())
+        throw new Error("Path is not a directory");
+    
+    // Create directory if necessary
+    if (!stat)
+        await AsyncFS.mkdir(path);
 }
 
 // == CRC-32 Redundancy Checking ==

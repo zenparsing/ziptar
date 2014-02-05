@@ -1,19 +1,20 @@
 module FS from "node:fs";
 
-import { ZipDataHeader as DataHeader } from "ZipDataHeader.js";
-import { ZipDataDescriptor as DataDescriptor } from "ZipDataDescriptor.js";
-import { ZipEntryHeader as EntryHeader } from "ZipEntryHeader.js";
+import { ZipDataHeader } from "ZipDataHeader.js";
+import { ZipDataDescriptor } from "ZipDataDescriptor.js";
 import { Crc32, normalizePath } from "Utilities.js";
 import { BufferWriter } from "BufferWriter.js";
 import { BufferReader } from "BufferReader.js";
-import { InflateStream, DeflateStream, NullStream } from "ZipStream.js";
+import { InflateStream, DeflateStream } from "Compression.js";
+import { CopyStream } from "CopyStream.js";
+import { Pipe } from "Pipe.js";
 
 var STORED = 0,
     DEFLATED = 8,
     NO_LOCAL_SIZE = 8,
     MADE_BY_UNIX = 789;
     
-export class ZipEntry {
+class ZipEntry {
 
     constructor(name) {
         
@@ -32,9 +33,9 @@ export class ZipEntry {
         this.name = normalizePath(name || "");
         this.extra = null;
         this.comment = "";
+        this.stream = null;
         
-        this.source = null;
-        
+        // Set appropriate defaults for directories
         if (!this.isDirectory) {
         
             this.version = 20;
@@ -48,181 +49,210 @@ export class ZipEntry {
         return this.name.endsWith("/");
     }
     
-    readHeader(buffer) {
-    
-        var h = EntryHeader.fromBuffer(buffer);
-        Object.keys(h).forEach(k => this[k] !== void 0 && (this[k] = h[k]));
-        
-        var r = new BufferReader(buffer.slice(EntryHeader.LENGTH));
-        
-        this.name = r.readString(h.fileNameLength);
-        this.extra = r.read(h.extraLength);
-        this.comment = r.readString(h.commentLength);
-        
-        return h.headerSize;
-    }
-    
-    writeHeader() {
-    
-        var buffer = EntryHeader.fromEntry(this).write();
-        var w = new BufferWriter(buffer.slice(EntryHeader.LENGTH));
-    
-        if (this.name) w.writeString(this.name);
-        if (this.extra) w.write(this.extra);
-        if (this.comment) w.writeString(this.comment);
-        
-        return buffer;
-    }
-    
-    writeDataHeader() {
-    
-        var buffer = DataHeader.fromEntry(this).write();
-        var w = new BufferWriter(buffer.slice(DataHeader.LENGTH));
-    
-        if (this.name) w.writeString(this.name);
-        if (this.extra) w.write(this.extra);
-        
-        return buffer;
-    }
-    
-    writeDataDescriptor() {
-    
-        return DataDescriptor.fromEntry(this).write();
-    }
-    
-    async compress(inStream, outStream, buffer) {
+}
+
+export class ZipEntryReader extends ZipEntry {
+
+    async open() {
     
         if (this.isDirectory)
             throw new Error("Entry is not a file");
         
-        var crc = new Crc32(),
-            compressed = 0,
-            size = 0,
-            abort = false,
-            zipStream;
+        if (!this.stream)
+            throw new Error("No input stream");
         
-        // Create the compression stream
-        switch (this.method) {
+        var buffer, dataHeader;
         
-            case STORED:
-                zipStream = new NullStream;
-                break;
-            
-            case DEFLATED:
-                zipStream = new DeflateStream;
-                break;
-            
-            default:
-                throw new Error("Unsupported compression method");
-        }
+        // Read the data header
+        await this.stream.seek(this.offset);
+        buffer = await this.stream.read(new Buffer(ZipDataHeader.LENGTH));
+        dataHeader = ZipDataHeader.fromBuffer(buffer);
         
-        zipStream.on("data", event => {
+        // Advance to the file contents
+        await this.stream.seek(this.offset + dataHeader.headerSize);
         
-            var data = event.data;
-            
-            // Accumulate data for the compressed output
-            compressed += data.length;
-            
-            await outStream.write(data);
-        });
-        
-        // Store the output position
-        this.offset = outStream.position;
-        
-        // Write the data header
-        await outStream.write(this.writeDataHeader());
-        
-        var data;
-        
-        // Read the file, one buffer at a time
-        while (data = await inStream.read(buffer)) {
-        
-            // Accumulate data for the raw input
-            crc.accumulate(data);
-            size += data.length;
-            
-            // Write data into compression stream
-            await zipStream.write(data);
-        }
-        
-        await zipStream.end();
-        
-        // Set entry data
-        this.crc32 = crc.value;
-        this.compressedSize = compressed;
-        this.size = size;
-    
-        await outStream.write(this.writeDataDescriptor());
-        
-        return this;
-    }
-    
-    async extract(fileStream, outStream, buffer) {
-    
-        if (this.isDirectory)
-            throw new Error("Entry is not a file");
-        
-        var chunk, dataHeader;
-        
-        // === Read the Data Header ===
-        
-        await fileStream.seek(this.offset);
-        chunk = await fileStream.read(buffer, 0, DataHeader.LENGTH);
-        dataHeader = DataHeader.fromBuffer(chunk);
-        
-        await fileStream.seek(this.offset + dataHeader.headerSize);
-        
-        var zipStream, zipFinish, crc;
+        var zipStream, crc;
         
         // Create decompression stream
         switch (this.method) {
         
             case STORED:
-                zipStream = new NullStream;
+                zipStream = new CopyStream;
                 break;
                 
             case DEFLATED:
                 zipStream = new InflateStream;
-                crc = new Crc32();
+                crc = new Crc32;
                 break;
             
             default:
                 throw new Error("Unsupported compression method");
         }
         
-        zipStream.on("data", event => {
-    
-            // Calculate CRC-32 on each chunk of decompressed data
-            if (crc) 
-                crc.accumulate(event.data);
+        var bytesLeft = this.compressedSize,
+            crcValue = this.crc32;
         
-            await outStream.write(event.data);
+        // Create a pipe from the input to the decompressor
+        var pipe = new Pipe(this.stream, {
+        
+            transform: data => {
+            
+                // End the stream if file has been read
+                if (bytesLeft === 0)
+                    return null;
+                
+                // Only read the remaining data for this file
+                if (bytesLeft < data.length)
+                    data = data.slice(0, bytesLeft);
+                
+                // Perform checksum calculation
+                if (crc) 
+                    crc.accumulate(data);
+                
+                bytesLeft -= data.length;
+                
+                return data;
+            }
+            
         });
         
-        // === Decompress Data ==
-            
-        var end = fileStream.position + this.compressedSize,
-            length;
+        pipe.connect(zipStream, true);
+        pipe.start();
         
-        while (fileStream.position < end) {
+        // Return a stream for reading
+        return {
         
-            // Read the next chunk
-            length = Math.min(buffer.length, end - fileStream.position);
-            chunk = await fileStream.read(buffer, 0, length);
+            checksum: $=> {
             
-            // Write chunk into decompressor
-            await zipStream.write(chunk);
+                return !crc || crc.value === this.crc32;
+            },
+            
+            read: (buffer, start, length) => { 
+            
+                return zipStream.read(buffer, start, length);
+            }
+            
+        };
+    }
+    
+}
+
+export class ZipEntryWriter extends ZipEntry {
+
+    async open() {
+    
+        if (!this.stream)
+            throw new Error("No output stream");
+        
+        if (this.isDirectory)
+            return this._openDirectory();
+        
+        var zipStream, crc;
+        
+        // Create the compression stream
+        switch (this.method) {
+        
+            case STORED:
+                zipStream = new CopyStream;
+                break;
+            
+            case DEFLATED:
+                zipStream = new DeflateStream;
+                crc = new Crc32;
+                break;
+            
+            default:
+                throw new Error("Unsupported compression method");
         }
         
-        await zipStream.end();
+        // Store the output position
+        this.offset = this.stream.position;
+        this.size = 0;
+        this.compressedSize = 0;
         
-        // === Finalize ===
+        // Write the data header
+        await this.stream.write(this._packDataHeader());
+        
+        var pipe = new Pipe(zipStream, {
+        
+            transform: data => {
             
-        // Validate CRC-32
-        if (crc && crc.value !== this.crc32)
-            throw new Error("CRC-32 check failed");
+                // Record the size of the compressed data
+                this.compressedSize += data.length;
+                
+                return data;
+            }
+            
+        });
         
-        return this;
-    }
+        pipe.connect(this.stream, false);
+        var pipeDone = pipe.start();
+        
+        var debug = [];
+        zipStream.debug = debug;
+        
+        // Return a stream for writing
+        return {
+        
+            zipStream,
+            
+            debug,
+            
+            uid:  Math.floor(Math.random() * 1000000),
+            
+            write: (buffer, start, length) => { 
 
+                if (start !== void 0)
+                    buffer = buffer.slice(start, length);
+                
+                // Record the size of the raw data
+                this.size += buffer.length;
+                
+                // Perform checksum calculation
+                if (crc)
+                    crc.accumulate(buffer);
+                
+                return await zipStream.write(buffer);
+            },
+            
+            end: $=> {
+            
+                // Store checksum value
+                this.crc32 = crc ? crc.value : 0;
+                
+                await zipStream.end();
+                await pipeDone;
+                await this.stream.write(this._packDataDescriptor());
+            }
+        };
+    }
+    
+    async _openDirectory() {
+    
+        // Write the data header
+        await this.stream.write(this._packDataHeader());
+        
+        // Return a no-op write stream
+        return {
+        
+            write: $=> { throw await new Error("Cannot write to a directory entry") },
+            end: $=> {}
+        }
+    }
+    
+    _packDataHeader() {
+    
+        var buffer = ZipDataHeader.fromEntry(this).write();
+        var w = new BufferWriter(buffer.slice(ZipDataHeader.LENGTH));
+    
+        if (this.name) w.writeString(this.name);
+        if (this.extra) w.write(this.extra);
+        
+        return buffer;
+    }
+    
+    _packDataDescriptor() {
+    
+        return ZipDataDescriptor.fromEntry(this).write();
+    }
 }

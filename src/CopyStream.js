@@ -6,11 +6,11 @@ export class CopyStream {
     
         this.output = null;
         this.outputOffset = 0;
+        this.outputState = "";
         this.reading = new Mutex;
         this.writing = new Mutex;
-        this.hasBuffer = new Condition;
-        this.bufferDone = new Condition;
-        this.lastBuffer = null;
+        this.outputReady = new Condition;
+        this.outputDone = new Condition;
         this.ended = false;
     }
     
@@ -29,13 +29,16 @@ export class CopyStream {
             this.outputOffset = 0;
             
             // Signal that a buffer is ready and wait until buffer is done
-            this.hasBuffer.set();
-            await this.bufferDone.wait(true);
+            this.outputState = "ready";
+            this.outputReady.notify();
+            await this.outputDone.wait();
             
-            var out = this.output;
+            buffer = this.output;
+            
             this.output = null;
+            this.outputState = "";
             
-            return out;
+            return buffer;
             
         });
     }
@@ -58,7 +61,8 @@ export class CopyStream {
             
             while (offset < buffer.length) {
             
-                await this.hasBuffer.wait(true);
+                if (this.outputState !== "ready")
+                    await this.outputReady.wait();
             
                 outLength = this.output.length;                
                 needed = outLength - this.outputOffset;
@@ -70,8 +74,11 @@ export class CopyStream {
                 offset += count;
                 this.outputOffset += count;
                 
-                if (this.outputOffset >= outLength)
-                    this.bufferDone.set();
+                if (this.outputOffset >= outLength) {
+                
+                    this.outputState = "done";
+                    this.outputDone.notify();
+                }
             }
             
             return buffer.length;
@@ -88,7 +95,8 @@ export class CopyStream {
             if (this.output) {
             
                 this.output = this.output.slice(0, this.outputOffset);
-                this.bufferDone.set();
+                this.outputState = "done";
+                this.outputDone.notify();
             }
             
         });

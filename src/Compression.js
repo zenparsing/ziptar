@@ -29,10 +29,12 @@ class ZipStream {
             throw new Error("Invalid mode");
         
         this.output = null;
+        this.outputState = "";
+        this.error = null;
         this.reading = new Mutex;
         this.writing = new Mutex;
-        this.hasBuffer = new Condition;
-        this.bufferDone = new Condition;
+        this.outputReady = new Condition;
+        this.outputDone = new Condition;
         
         var dictionary = undefined;
         
@@ -60,11 +62,13 @@ class ZipStream {
             this.output = buffer;
             
             // Signal that a buffer is ready and wait until buffer is done
-            this.hasBuffer.set();
-            await this.bufferDone.wait(true);
+            this.outputState = "ready";
+            this.outputReady.notify();
+            await this.outputDone.wait();
             
             var b = this.output;
             this.output = null;
+            this.outputState = "";
             
             return b;
             
@@ -95,7 +99,8 @@ class ZipStream {
             var pump = (buffer, start, length) => {
         
                 // Wait for a reader
-                await this.hasBuffer.wait(true);
+                if (this.outputState !== "ready")
+                    await this.outputReady.wait();
             
                 var inOffset = start || 0,
                     inLength = length || (buffer.length - inOffset),
@@ -123,7 +128,8 @@ class ZipStream {
                 
                         // Notify reader that output buffer is ready
                         this.output = this.output.slice(0, outLength - outLeft);
-                        this.bufferDone.set();
+                        this.outputState = "done";
+                        this.outputDone.notify();
                 
                         if (outLeft === 0) {
                     
@@ -147,14 +153,15 @@ class ZipStream {
             // Set an error handler specific to this write operation
             this.zlib.onerror = (msg, errno) => {
             
-                deferred.reject(new Error(msg));
+                deferred.reject(this.error = new Error(msg));
                 
                 // End the stream ungracefully
                 this.zlib = null;
                 
                 // Signal that we are done with the output buffer
                 this.output = null;
-                this.bufferDone.set();
+                this.outputState = "done";
+                this.outputDone.notify();
             };
             
             // Start writing data
@@ -168,7 +175,8 @@ class ZipStream {
             
             // Close zlib if we are ending the stream
             if (end) {
-            
+                
+                this.ended = true;
                 this.zlib.close();
                 this.zlib = null;
             }

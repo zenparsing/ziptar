@@ -3,47 +3,29 @@ export class Condition {
 
     constructor() {
     
-        this.state = true;
-        this.deferred = null;
-        this.set(false);
+        this.queue = [];
     }
     
-    wait(reset) {
+    wait() {
     
-        if (!this.state)
-            return this.deferred.promise.then($=> this.wait(reset));
-        
-        if (reset) 
-            this.set(false);
-        
-        return null;
+        // Add a waiter to the queue
+        return new Promise(resolve => this.queue.push(resolve));
     }
     
-    set(state) {
+    notify() {
     
-        if (state === undefined)
-            state = true;
+        // Release first waiter
+        if (this.queue.length > 0)
+            this.queue.shift()();
+    }
+    
+    notifyAll() {
+    
+        // Release all waiters
+        for (var i = 0; i < this.queue.length; ++i)
+            this.queue[i]();
         
-        // No-op if state is not changing
-        if (state === this.state)
-            return;
-        
-        this.state = state;
-        
-        if (this.state) {
-        
-            this.deferred.resolve();
-        
-        } else {
-        
-            var d = this.deferred = {};
-        
-            d.promise = new Promise((resolve, reject) => {
-        
-                d.resolve = resolve;
-                d.reject = reject;
-            });
-        }
+        this.queue.length = 0;
     }
     
 }
@@ -53,28 +35,29 @@ export class Mutex {
     constructor() {
         
         this.condition = new Condition;
-        this.condition.set(true);
-    }
-    
-    enter() {
-    
-        return this.condition.wait(true);
-    }
-    
-    leave() {
-    
-        this.condition.set(true);
+        this.free = true;
     }
     
     async lock(fn) {
-    
-        await this.enter();
+
+        if (!this.free)
+            await this.condition.wait();
+
+        this.free = false;
         
-        // TODO:  do we need try-finally here?  Or just fail altogether?
         var x;
         
-        try { x = await fn() }
-        finally { this.leave() }
+        try { 
+        
+            x = await fn(); 
+        
+        } finally { 
+        
+            if (this.condition.queue.length > 0)
+                this.condition.notify();
+            else 
+                this.free = true;
+        }
         
         return x;
     }

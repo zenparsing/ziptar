@@ -1,6 +1,5 @@
 import { Condition } from "Mutex.js";
 
-
 export class Pipe {
 
     constructor(readStream, options) {
@@ -13,6 +12,7 @@ export class Pipe {
         this.minBuffers = options.minBuffers >>> 0 || 1;
         this.maxBuffers = options.maxBuffers >>> 0 || 16;
         this.bufferSize = options.bufferSize >>> 0 || 8 * 1024;
+        this.transform = options.transform || null;
         this.free = [];
         this.bufferCount = 0;
         this.started = false;
@@ -21,9 +21,6 @@ export class Pipe {
         // Allocate initial buffers
         while (this.bufferCount < this.minBuffers)
             this.free[this.bufferCount++] = new Buffer(this.bufferSize);
-        
-        // Set signal to indicate there are buffers on the free list
-        this.bufferFree.set();
     }
     
     connect(writeStream, end) {
@@ -61,16 +58,19 @@ export class Pipe {
         
         var lastWrite = Promise.resolve(),
             error = null,
+            toRead,
             buffer, 
             read, 
             writes;
         
         var chainWrites = (list, buffer) => {
         
+            await lastWrite;
+            
             try {
             
-                await lastWrite;
-                await Promise.all(list);
+                if (list)
+                    await Promise.all(list);
                 
             } catch (x) {
             
@@ -80,46 +80,45 @@ export class Pipe {
                 // Store error for throwing when we exit the loop
                 if (!error)
                     error = x;
-            } 
+            }
             
             // Put buffer back on the free list
             this.free.push(buffer);
         
             // Signal readers waiting on a free buffer
-            this.bufferFree.set();
+            this.bufferFree.notify();
         };
         
         this.started = true;
         
         while (this.started) {
         
-            // Get a buffer from the free list
-            buffer = this.free.pop();
+            // If free list is empty...
+            while (this.free.length === 0) {
             
-            // If free list was empty...
-            if (!buffer) {
-            
+                // If we can allocate a new buffer...
                 if (this.bufferCount < this.maxBuffers) {
                 
                     // Allocate a new buffer
                     this.bufferCount += 1;
-                    buffer = new Buffer(this.bufferSize);
+                    this.free.push(new Buffer(this.bufferSize));
                     
                 } else {
 
                     // Wait until a buffer is freed
                     await this.bufferFree.wait();
-                    buffer = this.free.pop();
                 }
             }
             
-            // Unset the free signal if free list is empty
-            if (this.free.length === 0) 
-                this.bufferFree.set(false);
+            // Get a buffer from the free list
+            buffer = this.free.pop();
             
             // Read from the input stream
             read = await this.input.read(buffer);
             
+            if (read && this.transform)
+                read = await this.transform(read);
+                
             // Null signals end-of-stream
             if (!read) {
             
@@ -130,14 +129,10 @@ export class Pipe {
                 // Exit read loop
                 break;
                 
-            } else if (read.length === 0) {
-            
-                // Skip writing if there is nothing to write
-                continue;
             }
             
             // Write to all output streams
-            writes = this.outputs.map(out => out.stream.write(read, 0, read.length));
+            writes = read.length > 0 ? this.outputs.map(out => out.stream.write(read)) : null;
             
             // Release buffer when all writes are complete...
             lastWrite = chainWrites(writes, buffer);

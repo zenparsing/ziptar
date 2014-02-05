@@ -17,7 +17,7 @@ export async main() {
     
         async write(buffer, start, length) {
         
-            console.log("writing", length - start);
+            console.log("writing", buffer.length);
         },
         
         async end() {

@@ -63,7 +63,7 @@ export class FileStream {
         
             this._assertOpen();
         
-            if (!buffer || buffer.length === 0)
+            if (buffer.length === 0)
                 return;
         
             if (start === void 0) start = 0;
