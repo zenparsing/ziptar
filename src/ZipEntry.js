@@ -1,5 +1,3 @@
-module FS from "node:fs";
-
 import { ZipDataHeader } from "ZipDataHeader.js";
 import { ZipDataDescriptor } from "ZipDataDescriptor.js";
 import { Crc32, normalizePath } from "Utilities.js";
@@ -18,6 +16,7 @@ class ZipEntry {
 
     constructor(name) {
         
+        this.name = name;
         this.versionMadeBy = MADE_BY_UNIX;
         this.version = 10;
         this.flags = 0;
@@ -30,7 +29,6 @@ class ZipEntry {
         this.internalAttributes = 0;
         this.attributes = 0;
         this.offset = 0;
-        this.name = normalizePath(name || "");
         this.extra = null;
         this.comment = "";
         this.stream = null;
@@ -44,10 +42,10 @@ class ZipEntry {
         }
     }
     
-    get isDirectory() {
+    get name() { return this._name }
+    set name(value) { this._name = normalizePath(value || "") }
     
-        return this.name.endsWith("/");
-    }
+    get isDirectory() { return this.name.endsWith("/") }
     
 }
 

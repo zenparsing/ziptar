@@ -1,6 +1,5 @@
 module Path from "node:path";
-
-import { AsyncFS } from "package:zen-bits";
+module AsyncFS from "AsyncFS.js";
 
 // Returns a normalized path which is valid within an archive
 export function normalizePath(path) {

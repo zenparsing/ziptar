@@ -1,6 +1,5 @@
 module Path from "node:path";
 
-import { AsyncFS } from "package:zen-bits";
 import { FileStream } from "FileStream.js";
 import { TarHeader } from "TarHeader.js";
 

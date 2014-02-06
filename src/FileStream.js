@@ -1,4 +1,5 @@
-import { AsyncFS } from "package:zen-bits";
+module AsyncFS from "AsyncFS.js";
+
 import { Mutex } from "Mutex.js";
 
 export class FileStream {

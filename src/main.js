@@ -1,6 +1,6 @@
 module Path from "node:path";
+module AsyncFS from "AsyncFS.js";
 
-import { AsyncFS } from "package:zen-bits";
 import { ZipReader, ZipWriter } from "ZipFile.js";
 import { createDirectory } from "Utilities.js";
 import { FileStream } from "FileStream.js";

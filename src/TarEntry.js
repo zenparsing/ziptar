@@ -4,7 +4,7 @@ class TarEntry {
 
     constructor(name) {
     
-        this.name = normalizePath(name || "");
+        this.name = name;
         this.mode = 0;
         this.userID = 0;
         this.groupID = 0;
@@ -23,10 +23,10 @@ class TarEntry {
             this.type = "directory";
     }
     
-    get isDirectory() {
+    get name() { return this._name }
+    set name(value) { this._name = normalizePath(value || "") }
     
-        return this.name.endsWith("/");
-    }
+    get isDirectory() { return this.name.endsWith("/") }
     
 }
 
@@ -34,12 +34,7 @@ export class TarEntryReader extends TarEntry {
 
     async open() {
     
-        // Read any extended headers
-        
-        // Read the entry header
-        
-        // If the item has content, then provide a read stream
-        // for accessing the content
+        // Provide a read stream for the entry content, if it has content
     }
 }
 

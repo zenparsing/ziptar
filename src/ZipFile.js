@@ -1,6 +1,5 @@
 module Path from "node:path";
 
-import { AsyncFS } from "package:zen-bits";
 import { ZipEndHeader } from "ZipEndHeader.js";
 import { ZipEntryHeader } from "ZipEntryHeader.js";
 import { ZipEntryReader, ZipEntryWriter } from "ZipEntry.js";
