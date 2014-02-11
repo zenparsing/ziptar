@@ -14,16 +14,13 @@ export class CopyStream {
         this.ended = false;
     }
     
-    async read(buffer, start, length) {
+    async read(buffer) {
     
         return this.reading.lock($=> {
         
             // Null signals end-of-stream
             if (this.ended)
                 return null;
-        
-            if (start !== undefined)
-                buffer = buffer.slice(start, length);
         
             this.output = buffer;
             this.outputOffset = 0;
@@ -43,15 +40,12 @@ export class CopyStream {
         });
     }
     
-    async write(buffer, start, length) {
+    async write(buffer) {
     
         return this.writing.lock($=> {
         
             if (this.ended)
                 throw new Error("Stream closed");
-            
-            if (start !== undefined)
-                buffer = buffer.slice(start, length);
             
             var offset = 0, 
                 outLength,

@@ -34,57 +34,55 @@ export class FileStream {
         await this.close();
     }
     
-    async read(buffer, start, length) {
+    async read(buffer) {
     
         return this.mutex.lock($=> {
         
-            this._assertOpen();
-        
-            if (start === void 0) start = 0;
-            if (length === void 0) length = buffer.length - start;
-
+            // Return EOF if file has been closed
+            if (!this.fd)
+                return null;
+            
             var offset = this.position;
-            this.position = Math.min(this.length, this.position + length);
+            this.position = Math.min(this.length, this.position + buffer.length);
 
             var count = await AsyncFS.read(
                 this.fd, 
                 buffer, 
-                start, 
-                length, 
+                0, 
+                buffer.length, 
                 offset);
             
-            return count === 0 ? null : buffer.slice(start, count);
+            return count === 0 ? null : buffer.slice(0, count);
             
         });
     }
     
-    async write(buffer, start, length) {
+    async write(buffer) {
     
         return this.mutex.lock($=> {
         
-            this._assertOpen();
+            if (!this.fd)
+                throw new Error("File not open");
         
             if (buffer.length === 0)
                 return;
         
-            if (start === void 0) start = 0;
-            if (length === void 0) length = buffer.length - start;
-        
             var offset = this.position;
-            this.position += length;
+            this.position += buffer.length;
 
             return AsyncFS.write(
                 this.fd, 
                 buffer, 
-                start, 
-                length, 
+                0, 
+                buffer.length, 
                 offset);
         });
     }
     
     async seek(offset) {
     
-        this._assertOpen();
+        if (!this.fd)
+            throw new Error("File not open");
         
         if (offset < 0)
             throw new Error("Invalid file offset");
@@ -109,12 +107,6 @@ export class FileStream {
         stream.length = info ? info.size : 0;
         
         return stream;
-    }
-    
-    _assertOpen() {
-    
-        if (!this.fd)
-            throw new Error("File is not open");
     }
     
 }

@@ -92,6 +92,8 @@ export async unzip(source, dest) {
         
             // Start data flow
             await pipe.start();
+            
+            // TODO:  if (!inStream.checksum()) then throw error and erase file?
         }
     }
     

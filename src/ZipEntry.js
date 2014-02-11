@@ -14,13 +14,13 @@ var STORED = 0,
     
 class ZipEntry {
 
-    constructor(name) {
+    constructor() {
         
-        this.name = name;
+        this.name = "";
         this.versionMadeBy = MADE_BY_UNIX;
-        this.version = 10;
-        this.flags = 0;
-        this.method = STORED;
+        this.version = 20;
+        this.flags = NO_LOCAL_SIZE;
+        this.method = DEFLATED;
         this.lastModified = new Date(0);
         this.crc32 = 0;
         this.compressedSize = 0;
@@ -32,14 +32,6 @@ class ZipEntry {
         this.extra = null;
         this.comment = "";
         this.stream = null;
-        
-        // Set appropriate defaults for directories
-        if (!this.isDirectory) {
-        
-            this.version = 20;
-            this.flags = NO_LOCAL_SIZE;
-            this.method = DEFLATED;
-        }
     }
     
     get name() { return this._name }
@@ -54,7 +46,7 @@ export class ZipEntryReader extends ZipEntry {
     async open() {
     
         if (this.isDirectory)
-            throw new Error("Entry is not a file");
+            throw new Error("Cannot open a directory entry");
         
         if (!this.stream)
             throw new Error("No input stream");
@@ -120,15 +112,10 @@ export class ZipEntryReader extends ZipEntry {
         // Return a stream for reading
         return {
         
-            checksum: $=> {
+            checksum: $=> !crc || crc.value === this.crc32,
             
-                return !crc || crc.value === this.crc32;
-            },
-            
-            read: (buffer, start, length) => { 
-            
-                return zipStream.read(buffer, start, length);
-            }
+            // TODO: Check for invalid checksum after read returns null?
+            read: buffer => zipStream.read(buffer)
             
         };
     }
@@ -137,6 +124,21 @@ export class ZipEntryReader extends ZipEntry {
 
 export class ZipEntryWriter extends ZipEntry {
 
+    constructor(name) {
+    
+        super();
+        
+        this.name = name;
+        
+        // Set appropriate defaults for directories
+        if (this.isDirectory) {
+        
+            this.version = 10;
+            this.flags = 0;
+            this.method = STORED;
+        }
+    }
+    
     async open() {
     
         if (!this.stream)
@@ -186,23 +188,11 @@ export class ZipEntryWriter extends ZipEntry {
         pipe.connect(this.stream, false);
         var pipeDone = pipe.start();
         
-        var debug = [];
-        zipStream.debug = debug;
-        
         // Return a stream for writing
         return {
-        
-            zipStream,
             
-            debug,
-            
-            uid:  Math.floor(Math.random() * 1000000),
-            
-            write: (buffer, start, length) => { 
+            write: buffer => { 
 
-                if (start !== void 0)
-                    buffer = buffer.slice(start, length);
-                
                 // Record the size of the raw data
                 this.size += buffer.length;
                 
@@ -233,8 +223,8 @@ export class ZipEntryWriter extends ZipEntry {
         // Return a no-op write stream
         return {
         
-            write: $=> { throw await new Error("Cannot write to a directory entry") },
-            end: $=> {}
+            write: $=> { await 0; throw new Error("Cannot write to a directory entry"); },
+            end: $=> { await 0; }
         }
     }
     

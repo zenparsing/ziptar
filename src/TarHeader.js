@@ -1,6 +1,3 @@
-import { normalizePath } from "Utilities.js";
-import { TarExtended } from "TarExtended.js";
-
 var NAME = 100,
     MODE = 8,
     OWNER = 8,
@@ -35,7 +32,7 @@ var headerTypes = {
     "6": "fifo",
     "7": "contiguous-file",
     "g": "global-attributes",
-    "x": "file-attributes",
+    "x": "extended-attributes",
     "A": "solaris-acl",
     "D": "gnu-directory",
     "I": "inode",
@@ -44,11 +41,11 @@ var headerTypes = {
     "M": "continuation-file",
     "N": "old-long-path-name",
     "S": "sparse-file",
-    "V": "tape-volumn-header",
+    "V": "tape-volume-header",
     "X": "old-attributes"
 };
 
-Object.keys(headerTypes).forEach(k => { headerTypes[headerTypes[k]] = k });
+Object.keys(headerTypes).forEach(k => headerTypes[headerTypes[k]] = k);
 
 class FieldWriter {
 
@@ -289,35 +286,35 @@ class Overflow {
         this.fields = {};
     }
 
-    name(field) {
+    name(field, name) {
     
-        this.test(field, v => splitPath(v).overflow);
+        this.test(field, name, v => splitPath(v).overflow);
     }
     
-    text(field, length) {
+    text(field, name, length) {
     
-        this.test(field, v => {
+        this.test(field, name, v => {
         
             var bytes = (new Buffer(v)).length;
             return bytes > v.length || bytes > length;
         });
     }
     
-    number(field, length) {
+    number(field, name, length) {
     
-        this.test(field, v => {
+        this.test(field, name, v => {
         
             if (v && v.getTime) v = v.getTime() / 1000;
             return v < 0 || v > Math.pow(8, length - 1) - 1
         });
     }
     
-    test(field, pred) {
+    test(field, name, pred) {
     
         var v = this.header[field];
         
         if (pred(v))
-            this.fields[field] = v;
+            this.fields[name] = v;
     }
 }
 
@@ -325,7 +322,7 @@ export class TarHeader {
 
     constructor(name) {
     
-        this.name = normalizePath(name || "");
+        this.name = name || "";
         this.mode = 0;
         this.userID = 0;
         this.groupID = 0;
@@ -347,7 +344,7 @@ export class TarHeader {
             throw new Error("Insufficient buffer");
         
         var w = new FieldWriter(buffer);
-        var path = splitPath(normalizePath(this.name));
+        var path = splitPath(this.name);
         
         w.text(path.name, NAME);
         w.number(this.mode & 0x1FF, MODE);
@@ -379,12 +376,12 @@ export class TarHeader {
     
         var over = new Overflow(this);
         
-        over.name("name");
-        over.number("size", SIZE);
-        over.number("lastModified", MODIFIED);
-        over.text("linkPath", LINK_PATH);
-        over.text("userName", OWNER_NAME);
-        over.text("groupName", GROUP_NAME);
+        over.name("name", "path");
+        over.number("size", "size", SIZE);
+        over.number("lastModified", "mtime", MODIFIED);
+        over.text("linkPath", "linkpath", LINK_PATH);
+        over.text("userName", "uname", OWNER_NAME);
+        over.text("groupName", "gname", GROUP_NAME);
         
         return over.fields;
     }
@@ -420,7 +417,9 @@ export class TarHeader {
         if (!Checksum.match(buffer, r.number(CHECKSUM)))
             throw new Error("Invalid checksum");
         
-        h.type = headerTypes[r.text(TYPE)] || "file";
+        var type = r.text(TYPE);
+        
+        h.type = headerTypes[type] || "file";
         h.linkPath = r.text(LINK_PATH);
         
         // Stop here if magic "ustar" field is not set
@@ -441,8 +440,6 @@ export class TarHeader {
         
         if (prefix)
             h.name = prefix + "/" + h.name;
-        
-        h.name = normalizePath(h.name);
         
         return h;
     }

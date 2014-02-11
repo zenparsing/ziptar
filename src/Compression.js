@@ -12,12 +12,6 @@ var modes = {
     "gunzip": Z.GUNZIP   
 }
 
-/*
-
-Should we attempt to fill read buffers?  Or that could be an option.
-That would prevent us
-
-*/
 
 class ZipStream {
 
@@ -48,16 +42,13 @@ class ZipStream {
             dictionary);
     }
     
-    async read(buffer, start, length) {
+    async read(buffer) {
     
         return this.reading.lock($=> {
         
             // Null signals end-of-stream
             if (!this.zlib)
                 return null;
-        
-            if (start !== undefined)
-                buffer = buffer.slice(start, length);
         
             this.output = buffer;
             
@@ -75,18 +66,18 @@ class ZipStream {
         });
     }
     
-    async write(buffer, start, length) {
+    async write(buffer) {
     
-        return await this._write(buffer, start, length, false);
+        return await this._write(buffer, false);
     }
     
     async end() {
     
         // Write the final, flushing buffer
-        return await this._write(new Buffer(0), 0, 0, true);
+        return await this._write(new Buffer(0), true);
     }
     
-    async _write(buffer, start, length, end) {
+    async _write(buffer, end) {
     
         return this.writing.lock($=> {
         
@@ -165,7 +156,7 @@ class ZipStream {
             };
             
             // Start writing data
-            await pump(buffer, start, length);
+            await pump(buffer);
         
             // Wait for write to complete
             await deferred.promise;

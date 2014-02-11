@@ -128,7 +128,6 @@ export class Pipe {
                 
                 // Exit read loop
                 break;
-                
             }
             
             // Write to all output streams

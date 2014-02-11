@@ -1,6 +1,26 @@
 module Path from "node:path";
 module AsyncFS from "AsyncFS.js";
 
+export function zeroFilled(buffer) {
+
+    if (typeof buffer === "number")
+        buffer = new Buffer(buffer);
+    
+    for (var i = 0; i < buffer.length; ++i)
+        buffer[i] = 0;
+    
+    return buffer;
+}
+
+export function isZeroFilled(buffer) {
+    
+    for (var i = 0; i < buffer.length; ++i)
+        if (buffer[i] !== 0)
+            return false;
+
+    return true;
+}
+
 // Returns a normalized path which is valid within an archive
 export function normalizePath(path) {
 
