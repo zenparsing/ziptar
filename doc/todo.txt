@@ -1,5 +1,7 @@
 == TODO ==
 
+- What name should we use when writing extended attributes?
+
 - Since we are using FS.stat (i.e. following links), we could end up with
   infinite recursion.  We'll need to account for this.
   

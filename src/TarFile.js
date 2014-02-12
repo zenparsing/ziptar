@@ -7,20 +7,21 @@ import { TarEntryReader, TarEntryWriter } from "TarEntry.js";
 import { GZipStream, GUnzipStream } from "Compression.js";
 import { CopyStream } from "CopyStream.js";
 import { Pipe } from "Pipe.js";
-import { zeroFill, isZeroFilled } from "Utilities.js";
+import { zeroFill, isZeroFilled, Options } from "Utilities.js";
 
 export class TarReader {
 
-    constructor(fileStream, unzip) {
+    constructor(fileStream, options) {
     
         this.file = fileStream;
         this.attributes = {};
         this.stream = this.file;
         this.current = null;
         
-        var pipe;
+        var opt = new Options(options),
+            pipe;
         
-        if (unzip) {
+        if (opt.get("unzip")) {
         
             var unzipStream = new GUnzipStream;
             
@@ -177,12 +178,14 @@ export class TarReader {
 
 export class TarWriter {
 
-    constructor(fileStream, zip) {
+    constructor(fileStream, options) {
     
         this.file = fileStream;
         this.stream = fileStream;
         
-        if (zip) {
+        var opt = new Options(options);
+        
+        if (opt.get("zip")) {
         
             var zipStream = new GZipStream,
                 pipe = new Pipe(zipStream);
@@ -211,10 +214,10 @@ export class TarWriter {
         return writer;
     }
     
-    static async open(path, zip) {
+    static async open(path, options) {
     
         path = Path.resolve(path);
-        return new this(await FileStream.open(path, "w"), zip);
+        return new this(await FileStream.open(path, "w"), options);
     }
     
 }

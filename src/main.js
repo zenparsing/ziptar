@@ -7,24 +7,53 @@ import { createDirectory } from "Utilities.js";
 import { FileStream } from "FileStream.js";
 import { Pipe } from "Pipe.js";
 
-export async tar(list, dest, zip) {
+export async tar(list, dest, options) {
 
-    return createArchive(await TarWriter.open(dest, zip), list);
+    return createArchive(await TarWriter.open(dest, options), list);
 }
 
-export async untar(source, dest, unzip) {
+export async untar(source, dest, options) {
 
-    return extractArchive(await TarReader.open(source, unzip), dest);
+    return extractArchive(await TarReader.open(source, options), dest);
 }
 
-export async zip(list, dest) {
+export async zip(list, dest, options) {
 
-    return createArchive(await ZipWriter.open(dest), list);
+    return createArchive(await ZipWriter.open(dest, options), list);
 }
 
-export async unzip(source, dest) {
+export async unzip(source, dest, options) {
 
-    return extractArchive(await ZipReader.open(source), dest);
+    return extractArchive(await ZipReader.open(source, options), dest);
+}
+
+export async extract(source, dest) {
+
+    source = Path.resolve(source);
+    dest = dest ? Path.resolve(dest) : Path.dirname(source);
+    
+    var reader;
+    
+    switch (Path.extname(source).toLowerCase()) {
+    
+        case ".gz":
+        case ".tgz":
+            reader = await TarReader.open(source, { unzip: true });
+            break;
+        
+        case ".tar":
+            reader = await TarReader.open(source, { unzip: false });
+            break;
+        
+        case ".zip":
+            reader = await ZipReader.open(source);
+            break;
+        
+        default:
+            throw new Error("Unknown file type");
+    }
+    
+    return extractArchive(reader, dest);
 }
 
 async createArchive(archive, list) {
@@ -80,8 +109,6 @@ async createArchive(archive, list) {
 
 async extractArchive(archive, dest) {
 
-    dest = Path.resolve(dest);
-    
     var entry,
         outPath,
         inStream,

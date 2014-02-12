@@ -1,6 +1,22 @@
 module Path from "node:path";
 module AsyncFS from "AsyncFS.js";
 
+export class Options {
+
+    constructor(obj) {
+    
+        this.fields = obj;
+    }
+    
+    get(key, def) {
+    
+        if (this.fields && this.fields[key] !== void 0)
+            return this.fields[key];
+        
+        return def;
+    }
+}
+
 // Zero-fills a buffer
 export function zeroFilled(buffer) {
 

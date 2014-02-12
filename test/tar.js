@@ -1,12 +1,12 @@
 module Path from "node:path";
 
-import { tar, untar } from "../src/main.js";
+import { tar, untar, extract } from "../src/main.js";
 
 var file = Path.join(__dirname, "_temp/tar-sample.tar.gz");
 
 export async main() {
     
-    await untar(file, Path.join(__dirname, "_temp/tar-out/"), true);
+    await extract(file);
     /*
     var reader = await TarReader.open(file, true),
         entry;
