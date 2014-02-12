@@ -2,21 +2,40 @@ module Path from "node:path";
 module AsyncFS from "AsyncFS.js";
 
 import { ZipReader, ZipWriter } from "ZipFile.js";
+import { TarReader, TarWriter } from "TarFile.js";
 import { createDirectory } from "Utilities.js";
 import { FileStream } from "FileStream.js";
 import { Pipe } from "Pipe.js";
 
+export async tar(list, dest, zip) {
+
+    return createArchive(await TarWriter.open(dest, zip), list);
+}
+
+export async untar(source, dest, unzip) {
+
+    return extractArchive(await TarReader.open(source, unzip), dest);
+}
+
 export async zip(list, dest) {
+
+    return createArchive(await ZipWriter.open(dest), list);
+}
+
+export async unzip(source, dest) {
+
+    return extractArchive(await ZipReader.open(source), dest);
+}
+
+async createArchive(archive, list) {
 
     if (typeof list === "string")
         list = [list];
     
-    var z = await ZipWriter.open(dest);
-    
     for (var i = 0; i < list.length; ++i)
         await add(Path.resolve(list[i]), "");
     
-    await z.close();
+    await archive.close();
     
     async add(path, dir) {
     
@@ -27,7 +46,7 @@ export async zip(list, dest) {
         if (!isDir && !stat.isFile())
             throw new Error("Invalid path");
         
-        var entry = z.createEntry(dir + filename + (isDir ? "/" : ""));
+        var entry = archive.createEntry(dir + filename + (isDir ? "/" : ""));
         
         entry.lastModified = stat.mtime;
         
@@ -44,23 +63,26 @@ export async zip(list, dest) {
             for (var i = 0; i < list.length; ++i)
                 await add(list[i], entry.name);
         
-        } else {
+        } else if (entry.isFile) {
             
             var pipe = new Pipe(await FileStream.open(path, "r"));
             pipe.filename = path;
             pipe.connect(outStream, true);
             await pipe.start();
+            
+        } else {
+        
+            entry.close();
         }
         
     }
 }
 
-export async unzip(source, dest) {
+async extractArchive(archive, dest) {
 
     dest = Path.resolve(dest);
     
-    var z = await ZipReader.open(source),
-        entry,
+    var entry,
         outPath,
         inStream,
         outStream,
@@ -69,16 +91,15 @@ export async unzip(source, dest) {
     // Create the destination directory
     await createDirectory(dest);
     
-    for (var i = 0; i < z.entries.length; ++i) {
+    while (entry = await archive.nextEntry()) {
     
-        entry = z.entries[i];
         outPath = Path.join(dest, entry.name);
         
         if (entry.isDirectory) {
         
             await createDirectory(outPath, true);
             
-        } else {
+        } else if (entry.isFile) {
         
             // Create intermediate directories
             await createDirectory(Path.dirname(outPath), true);
@@ -92,10 +113,8 @@ export async unzip(source, dest) {
         
             // Start data flow
             await pipe.start();
-            
-            // TODO:  if (!inStream.checksum()) then throw error and erase file?
         }
     }
     
-    await z.close();
+    await archive.close();
 }

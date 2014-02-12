@@ -1,6 +1,7 @@
 module Path from "node:path";
 module AsyncFS from "AsyncFS.js";
 
+// Zero-fills a buffer
 export function zeroFilled(buffer) {
 
     if (typeof buffer === "number")
@@ -12,6 +13,7 @@ export function zeroFilled(buffer) {
     return buffer;
 }
 
+// Returns true if the buffer is all zeros
 export function isZeroFilled(buffer) {
     
     for (var i = 0; i < buffer.length; ++i)

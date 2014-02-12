@@ -34,6 +34,26 @@ class TarEntry {
     get name() { return this._name }
     set name(value) { this._name = normalizePath(value || "") }
     
+    get isDirectory() { 
+    
+        switch (this.type) {
+        
+            case "directory":
+            case "gnu-directory": return true;
+            default: return false;
+        }
+    }
+    
+    get isFile() { 
+    
+        switch (this.type) {
+        
+            case "file":
+            case "contiguous-file": return true;
+            default: return false;
+        }
+    }
+    
 }
 
 export class TarEntryReader extends TarEntry {

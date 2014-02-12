@@ -15,12 +15,21 @@ export class ZipReader {
         this.file = fileStream;
         this.entries = [];
         this.entryMap = {};
+        this.current = 0;
     }
     
     getEntry(name) {
     
         var index = this.entryMap[name];
         return (typeof index !== "number") ? null : this.entries[index];
+    }
+    
+    async nextEntry() {
+    
+        if (this.current >= this.entries.length)
+            return null;
+        
+        return this.entries[this.current++];
     }
     
     async close() {

@@ -38,7 +38,7 @@ class ZipEntry {
     set name(value) { this._name = normalizePath(value || "") }
     
     get isDirectory() { return this.name.endsWith("/") }
-    
+    get isFile() { return !this.name.endsWith("/") }
 }
 
 export class ZipEntryReader extends ZipEntry {
