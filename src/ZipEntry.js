@@ -237,8 +237,8 @@ export class ZipEntryWriter extends ZipEntry {
         // Return a no-op write stream
         return {
         
-            write: $=> { await 0; throw new Error("Cannot write to a directory entry"); },
-            end: $=> { await 0; }
+            write: $=> { throw await new Error("Cannot write to a directory entry") },
+            end: $=> { await null }
         }
     }
     

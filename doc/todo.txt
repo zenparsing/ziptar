@@ -1,19 +1,13 @@
 == TODO ==
 
-- What name should we use when writing extended attributes?
+- We desperately need a formalized test suite.  What's the easiest way to create one?
+
+- What name should we use when writing extended attributes?  What does node-tar use?
 
 - Since we are using FS.stat (i.e. following links), we could end up with
   infinite recursion.  We'll need to account for this.
-  
-- Problem with generic interface:  we need to have a general "type" field,
-  rather than checking isDirectory.  But that still presents issues for
-  the generic ArchiveReader interface.  How do we know what to do with
-  entries that are neither files nor directories?  We are currently using
-  isDirectory/isFile, which I'm not satisfied with.
 
 - Provide filter for nextEntry() API.
-
-- Zip: throw on invalid checksum.
 
 - Pipe API and signature review.  There should be an easier way to do the common
   task.
@@ -21,15 +15,15 @@
 - Should we be locking our ad hoc streams in ZipEntry and TarEntry?
 
 - Propagation of options for things like pipe/memory settings, compression
-  settings, overwrite settings, etc.  Also allow a filter function which
-  determines whether or not to extract/compress a file.
+  settings, overwrite settings, etc.
 
-- Case sensitivity.  Should we allow or disallow?  Right now we allow.
+- Zip: case sensitivity.  Should we allow or disallow?  Right now we allow.
 
 - Zip64 support?
 
 - A mechanism for reading the extra zip header bytes?  Support for Zip64 would
   necessitate this.
 
-- Adding or removing files from an existing (open) archive.  This will involve
-  copying the compressed data instead of generating it.
+- API for appending to an archive.  Low priority.
+
+- API or options for monitoring progress?
