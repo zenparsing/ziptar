@@ -7,6 +7,12 @@ import { createDirectory } from "Utilities.js";
 import { FileStream } from "FileStream.js";
 import { Pipe } from "Pipe.js";
 
+function getFullExt(path) {
+
+    var match = /\.[\s\S]*$/.exec(Path.basename(path));
+    return match ? match[0].toLowerCase() : "";
+}
+
 export async tar(list, dest, options) {
 
     return createArchive(await TarWriter.open(dest, options), list);
@@ -34,9 +40,9 @@ export async extract(source, dest) {
     
     var reader;
     
-    switch (Path.extname(source).toLowerCase()) {
+    switch (getFullExt(source)) {
     
-        case ".gz":
+        case ".tar.gz":
         case ".tgz":
             reader = await TarReader.open(source, { unzip: true });
             break;
