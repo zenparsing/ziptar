@@ -24,8 +24,6 @@
   settings, overwrite settings, etc.  Also allow a filter function which
   determines whether or not to extract/compress a file.
 
-- Zip: Set the file modification time on extraction.
-
 - Case sensitivity.  Should we allow or disallow?  Right now we allow.
 
 - Zip64 support?

@@ -5,15 +5,23 @@ export class Options {
 
     constructor(obj) {
     
-        this.fields = obj;
+        this.raw = obj;
     }
     
     get(key, def) {
     
-        if (this.fields && this.fields[key] !== void 0)
-            return this.fields[key];
+        if (this.raw && this.raw[key] !== void 0)
+            return this.raw[key];
         
         return def;
+    }
+    
+    set(key, val) {
+    
+        if (!this.raw)
+            this.raw = {};
+        
+        this.raw[key] = val;
     }
 }
 

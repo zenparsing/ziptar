@@ -146,6 +146,9 @@ async extractArchive(archive, dest) {
         
             // Start data flow
             await pipe.start();
+            
+            // Set the last modified time for the file
+            await AsyncFS.utimes(outPath, entry.lastModified, entry.lastModified);
         }
     }
     
