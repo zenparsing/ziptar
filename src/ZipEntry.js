@@ -79,8 +79,7 @@ export class ZipEntryReader extends ZipEntry {
                 throw new Error("Unsupported compression method");
         }
         
-        var bytesLeft = this.compressedSize,
-            crcValue = this.crc32;
+        var bytesLeft = this.compressedSize;
         
         // Create a pipe from the input to the decompressor
         var pipe = new Pipe(this.stream, {
@@ -95,10 +94,6 @@ export class ZipEntryReader extends ZipEntry {
                 if (bytesLeft < data.length)
                     data = data.slice(0, bytesLeft);
                 
-                // Perform checksum calculation
-                if (crc) 
-                    crc.accumulate(data);
-                
                 bytesLeft -= data.length;
                 
                 return data;
@@ -112,10 +107,28 @@ export class ZipEntryReader extends ZipEntry {
         // Return a stream for reading
         return {
         
-            checksum: $=> !crc || crc.value === this.crc32,
+            read: buffer => {
             
-            // TODO: Check for invalid checksum after read returns null?
-            read: buffer => zipStream.read(buffer)
+                var read = await zipStream.read(buffer);
+                
+                // Perform checksum calculation
+                if (crc) {
+                
+                    if (read) {
+                    
+                        crc.accumulate(read);
+                    
+                    } else {
+                    
+                        if (crc.value !== this.crc32)
+                            throw new Error("Invalid checksum");
+                        
+                        crc = null;
+                    }
+                }
+                
+                return read;
+            }
             
         };
     }
@@ -204,12 +217,13 @@ export class ZipEntryWriter extends ZipEntry {
             },
             
             end: $=> {
-            
-                // Store checksum value
-                this.crc32 = crc ? crc.value : 0;
                 
                 await zipStream.end();
                 await pipeDone;
+                
+                // Store checksum value
+                this.crc32 = crc ? crc.value : 0;
+                
                 await this.stream.write(this._packDataDescriptor());
             }
         };
