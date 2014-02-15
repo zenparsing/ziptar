@@ -1,4 +1,5 @@
 import { Condition, Mutex } from "Mutex.js";
+import { Options } from "Utilities.js";
 
 var Z = process.binding("zlib");
 
@@ -12,14 +13,11 @@ var modes = {
     "gunzip": Z.GUNZIP   
 }
 
-
 class ZipStream {
 
-    constructor(mode) {
-    
-        // TODO: Allow user to specify an options object
-        
-        if (modes[mode] === void 0)
+    constructor(mode, options) {
+
+        if (!mode || modes[mode] === void 0)
             throw new Error("Invalid mode");
         
         this.output = null;
@@ -30,16 +28,16 @@ class ZipStream {
         this.outputReady = new Condition;
         this.outputDone = new Condition;
         
-        var dictionary = undefined;
+        var opt = new Options(options);
         
         this.zlib = new Z.Zlib(modes[mode]);
         
         this.zlib.init(
-            15, // Z.Z_DEFAULT_WINDOWBITS,
-            Z.Z_DEFAULT_COMPRESSION,
-            8, // Z.Z_DEFAULT_MEMLEVEL,
-            Z.Z_DEFAULT_STRATEGY,
-            dictionary);
+            opt.get("windowBits", 15),
+            opt.get("compression", Z.Z_DEFAULT_COMPRESSION),
+            opt.get("memoryLevel", 8),
+            opt.get("strategy", Z.Z_DEFAULT_STRATEGY),
+            opt.get("dictionary", void 0));
     }
     
     async read(buffer) {
