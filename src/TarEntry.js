@@ -1,5 +1,6 @@
 import { TarHeader } from "TarHeader.js";
 import { normalizePath, zeroFill } from "Utilities.js";
+import { Mutex } from "Mutex.js";
 
 var NO_SIZE = {
 
@@ -76,10 +77,12 @@ export class TarEntryReader extends TarEntry {
             this.remaining = NO_SIZE[this.type] ? 0 : this.size;
             this.fillBytes = 512 - (this.remaining % 512);
         }
+        
+        var mutex = new Mutex;
     
         return {
         
-            read: buffer => {
+            read: buffer => mutex.lock($=> {
     
                 if (this.remaining === 0)
                     return null;
@@ -103,7 +106,8 @@ export class TarEntryReader extends TarEntry {
                 }
         
                 return read;
-            }
+                
+            })
             
         };
     }
@@ -128,7 +132,8 @@ export class TarEntryWriter extends TarEntry {
             throw new Error("No output stream");
         
         var header = TarHeader.fromEntry(this),
-            extended = header.getOverflow();
+            extended = header.getOverflow(),
+            mutex = new Mutex;
         
         // Copy attributes to extended collection
         Object.keys(this.attributes).forEach(k => extended[k] = this.attributes[k]);
@@ -144,7 +149,7 @@ export class TarEntryWriter extends TarEntry {
         
         return {
         
-            write: buffer => {
+            write: buffer => mutex.lock($=> {
             
                 await this.stream.write(buffer);
                 
@@ -152,9 +157,9 @@ export class TarEntryWriter extends TarEntry {
                 
                 if (remaining < 0)
                     throw new Error("Invalid entry length");
-            },
+            }),
             
-            end: $=> {
+            end: $=> mutex.lock($=> {
             
                 if (remaining > 0) {
                 
@@ -174,7 +179,7 @@ export class TarEntryWriter extends TarEntry {
                 }
                 
                 await this.stream.end();
-            }
+            })
             
         };
     }

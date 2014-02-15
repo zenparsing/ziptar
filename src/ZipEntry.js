@@ -6,6 +6,7 @@ import { BufferReader } from "BufferReader.js";
 import { InflateStream, DeflateStream } from "Compression.js";
 import { CopyStream } from "CopyStream.js";
 import { Pipe } from "Pipe.js";
+import { Mutex } from "Mutex.js";
 
 var STORED = 0,
     DEFLATED = 8,
@@ -104,10 +105,12 @@ export class ZipEntryReader extends ZipEntry {
         pipe.connect(zipStream, true);
         pipe.start();
         
+        var mutex = new Mutex;
+        
         // Return a stream for reading
         return {
         
-            read: buffer => {
+            read: buffer => mutex.lock($=> {
             
                 var read = await zipStream.read(buffer);
                 
@@ -128,7 +131,7 @@ export class ZipEntryReader extends ZipEntry {
                 }
                 
                 return read;
-            }
+            })
             
         };
     }
@@ -199,12 +202,14 @@ export class ZipEntryWriter extends ZipEntry {
         });
         
         pipe.connect(this.stream, false);
+        
         var pipeDone = pipe.start();
+        var mutex = new Mutex;
         
         // Return a stream for writing
         return {
             
-            write: buffer => { 
+            write: buffer => mutex.lock($=> { 
 
                 // Record the size of the raw data
                 this.size += buffer.length;
@@ -214,9 +219,9 @@ export class ZipEntryWriter extends ZipEntry {
                     crc.accumulate(buffer);
                 
                 return await zipStream.write(buffer);
-            },
+            }),
             
-            end: $=> {
+            end: $=> mutex.lock($=> {
                 
                 await zipStream.end();
                 await pipeDone;
@@ -225,7 +230,7 @@ export class ZipEntryWriter extends ZipEntry {
                 this.crc32 = crc ? crc.value : 0;
                 
                 await this.stream.write(this._packDataDescriptor());
-            }
+            })
         };
     }
     
