@@ -180,20 +180,20 @@ class ZipStream {
 
 export class DeflateStream extends ZipStream {
 
-    constructor(header) { super(header ? "deflate" : "deflate-raw") }
+    constructor(header, options) { super(header ? "deflate" : "deflate-raw", options) }
 }
 
 export class InflateStream extends ZipStream {
 
-    constructor(header) { super(header ? "inflate" : "inflate-raw") }
+    constructor(header, options) { super(header ? "inflate" : "inflate-raw", options) }
 }
 
 export class GZipStream extends ZipStream {
 
-    constructor(header) { super("gzip") }
+    constructor(options) { super("gzip", options) }
 }
 
 export class GUnzipStream extends ZipStream {
 
-    constructor(header) { super("gunzip") }
+    constructor(options) { super("gunzip", options) }
 }
