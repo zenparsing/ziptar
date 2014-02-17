@@ -210,7 +210,7 @@ export class TarWriter {
     createEntry(name) {
     
         var writer = new TarEntryWriter(name);
-        writer.stream = this;
+        writer.stream = this.stream;
         return writer;
     }
     

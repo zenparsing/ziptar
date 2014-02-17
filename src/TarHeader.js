@@ -390,7 +390,7 @@ export class TarHeader {
     
     static fromEntry(entry) {
     
-        var h = new this();
+        var h = new this;
         
         Object.keys(h).forEach(k => entry[k] !== void 0 && (h[k] = entry[k]));
         
@@ -399,9 +399,7 @@ export class TarHeader {
     
     static fromBuffer(buffer) {
     
-        if (buffer === void 0)
-            buffer = new Buffer(HEADER_SIZE);
-        else if (buffer.length < HEADER_SIZE)
+        if (buffer.length < HEADER_SIZE)
             throw new Error("Invalid buffer size");
         
         var r = new FieldReader(buffer);

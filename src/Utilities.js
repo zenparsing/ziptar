@@ -26,7 +26,7 @@ export class Options {
 }
 
 // Zero-fills a buffer
-export function zeroFilled(buffer) {
+export function zeroFill(buffer) {
 
     if (typeof buffer === "number")
         buffer = new Buffer(buffer);

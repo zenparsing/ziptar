@@ -85,6 +85,9 @@ async createArchive(archive, list) {
         
         entry.lastModified = stat.mtime;
         
+        if (entry.isFile)
+            entry.size = stat.size;
+        
         var outStream = await entry.open();
         
         if (entry.isDirectory) {
@@ -101,7 +104,6 @@ async createArchive(archive, list) {
         } else if (entry.isFile) {
             
             var pipe = new Pipe(await FileStream.open(path, "r"));
-            pipe.filename = path;
             pipe.connect(outStream, true);
             await pipe.start();
             

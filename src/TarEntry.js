@@ -1,4 +1,5 @@
 import { TarHeader } from "TarHeader.js";
+import { TarExtended } from "TarExtended.js";
 import { normalizePath, zeroFill } from "Utilities.js";
 import { Mutex } from "Mutex.js";
 
@@ -139,13 +140,14 @@ export class TarEntryWriter extends TarEntry {
         Object.keys(this.attributes).forEach(k => extended[k] = this.attributes[k]);
         
         // Write the extended header
-        await this._writeExtended(extended);
+        if (Object.keys(extended).length > 0)
+            await this._writeExtended(extended);
         
         // Write the entry header
         await this.stream.write(header.write());
         
         var remaining = NO_SIZE[this.type] ? 0 : this.size;
-        remaining += remaining % 512;
+        remaining += 512 - (remaining % 512);
         
         return {
         
@@ -161,24 +163,22 @@ export class TarEntryWriter extends TarEntry {
             
             end: $=> mutex.lock($=> {
             
-                if (remaining > 0) {
+                if (remaining <= 0)
+                    return;
                 
-                    var buffer = zeroFill(Math.min(remaining, 16 * 1024)),
-                        data;
+                var buffer = zeroFill(Math.min(remaining, 8 * 1024)),
+                    data;
+                
+                while (remaining > 0) {
+                
+                    data = remaining < buffer.length ? 
+                        buffer.slice(0, remaining) : 
+                        buffer;
                     
-                    while (remaining > 0) {
+                    await this.stream.write(data);
                     
-                        data = remaining < buffer.length ? 
-                            buffer.slice(0, remaining) : 
-                            buffer;
-                        
-                        await this.stream.write(data);
-                        
-                        remaining -= data.length;
-                    }
+                    remaining -= data.length;
                 }
-                
-                await this.stream.end();
             })
             
         };
@@ -203,8 +203,8 @@ export class TarEntryWriter extends TarEntry {
         entry.size = data.length;
         
         var stream = await entry.open();
-        await entry.write(data);
-        await entry.close();
+        await stream.write(data);
+        await stream.end();
     }
     
 }
