@@ -3,6 +3,9 @@ import { TarExtended } from "TarExtended.js";
 import { normalizePath, zeroFill } from "Utilities.js";
 import { Mutex } from "Mutex.js";
 
+var OCTAL_755 = 493,
+    OCTAL_644 = 420;
+
 var NO_SIZE = {
 
     "link": 1,
@@ -18,7 +21,7 @@ class TarEntry {
     constructor() {
     
         this.name = "";
-        this.mode = 0;
+        this.mode = OCTAL_644;
         this.userID = 0;
         this.groupID = 0;
         this.size = 0;
@@ -123,8 +126,11 @@ export class TarEntryWriter extends TarEntry {
         
         this.name = name;
         
-        if (this.name.endsWith("/"))
+        if (this.name.endsWith("/")) {
+        
             this.type = "directory";
+            this.mode = OCTAL_755;
+        }
     }
     
     async open() {

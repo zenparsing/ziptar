@@ -1,5 +1,8 @@
 == TODO ==
 
+- Tar:  we are not correctly writing uid, gid, username, groupname, and (most importantly)
+  mode.  Currently native tar cannot unpack because of this.
+
 - We desperately need a formalized test suite.  What's the easiest way to create one?
 
 - What name should we use when writing extended attributes?  What does node-tar use?
@@ -11,8 +14,6 @@
 
 - Pipe API and signature review.  There should be an easier way to do the common
   task.
-
-- Should we be locking our ad hoc streams in ZipEntry and TarEntry?
 
 - Propagation of options for things like pipe/memory settings, compression
   settings, overwrite settings, etc.

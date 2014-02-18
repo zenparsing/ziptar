@@ -19,7 +19,9 @@ var CHECKSUM_START = 148,
     CHECKSUM_END = CHECKSUM_START + CHECKSUM,
     HEADER_SIZE = 512,
     SPACE_VAL = " ".charCodeAt(0),
-    SLASH_VAL = "/".charCodeAt(0);
+    SLASH_VAL = "/".charCodeAt(0),
+    SPACE_NULL = " \0",
+    NULL_SPACE = "\0 ";
 
 var headerTypes = {
 
@@ -81,39 +83,30 @@ class FieldWriter {
         this.zero(length - count);
     }
     
-    number(value, length) {
+    number(value, length, terminator) {
     
         // Field numbers should be integers
         value = Math.floor(value);
         
-        // Numbers greater that maximum or less than zero are binary encoded
-        if (value < 0 || value > Math.pow(8, length - 1) - 1)
+        // Numbers greater than maximum or less than zero are binary encoded
+        if (value < 0 || value > Math.pow(8, length - terminator.length) - 1)
             return this.binaryNumber(value, length);
         
-        var n = value.toString(8),
-            count = length - 1,
-            space = false;
+        var n = value.toString(8) + terminator;
         
-        while (n.length < count) {
-        
-            // Add a space after the number, and pad remaining
-            // characters with "0"
-            if (!space) { n = n + " "; space = true; }
-            else n = "0" + n;
-        }
+        // Front-pad with zero
+        while (n.length < length)
+            n = "0" + n;
         
         // Write padded octal string
-        this.buffer.write(n, this.position, count, "utf8");
-        
-        // NULL terminate
-        this.buffer[this.position + count] = 0;
+        this.buffer.write(n, this.position, length, "utf8");
         
         this.position += length;
     }
     
     date(value, length) {
     
-        return this.number(value.getTime() / 1000, length);
+        return this.number(value.getTime() / 1000, length, " ");
     }
     
     binaryNumber(value, length) {
@@ -327,7 +320,7 @@ export class TarHeader {
         this.userID = 0;
         this.groupID = 0;
         this.size = 0;
-        this.lastModified = new Date();
+        this.lastModified = new Date;
         this.type = "file";
         this.linkPath = "";
         this.userName = "";
@@ -347,27 +340,27 @@ export class TarHeader {
         var path = splitPath(this.name);
         
         w.text(path.name, NAME);
-        w.number(this.mode & 0x1FF, MODE);
-        w.number(this.userID, OWNER);
-        w.number(this.groupID, GROUP);
-        w.number(this.size, SIZE);
+        w.number(this.mode & 0x1FF, MODE, SPACE_NULL);
+        w.number(this.userID, OWNER, SPACE_NULL);
+        w.number(this.groupID, GROUP, SPACE_NULL);
+        w.number(this.size, SIZE, " ");
         w.date(this.lastModified, MODIFIED);
         w.skip(CHECKSUM);
         w.text(headerTypes[this.type] || "0", TYPE);
         w.text(this.linkPath, LINK_PATH);
-        w.text("ustar ", MAGIC);
+        w.text("ustar", MAGIC);
         w.text("00", VERSION);
         w.text(this.userName, OWNER_NAME);
         w.text(this.groupName, GROUP_NAME);
-        w.number(this.deviceMajor, DEV_MAJOR);
-        w.number(this.deviceMinor, DEV_MINOR);
+        w.number(this.deviceMajor, DEV_MAJOR, " ");
+        w.number(this.deviceMinor, DEV_MINOR, " ");
         w.text(path.prefix, PREFIX);
         w.zero();
         
         // Calculate and store checksum after everything else
         // has been written
         w.position = CHECKSUM_START;
-        w.number(Checksum.compute(buffer).signed, CHECKSUM);
+        w.number(Checksum.compute(buffer).signed, CHECKSUM, NULL_SPACE);
         
         return buffer;
     }
