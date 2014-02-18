@@ -109,7 +109,7 @@ async createArchive(archive, list) {
             
         } else {
         
-            entry.close();
+            await entry.close();
         }
         
     }

@@ -25,7 +25,7 @@ class TarEntry {
         this.userID = 0;
         this.groupID = 0;
         this.size = 0;
-        this.lastModified = new Date();
+        this.lastModified = new Date;
         this.type = "file";
         this.linkPath = "";
         this.userName = "";
@@ -79,7 +79,7 @@ export class TarEntryReader extends TarEntry {
         if (this.remaining < 0) {
         
             this.remaining = NO_SIZE[this.type] ? 0 : this.size;
-            this.fillBytes = 512 - (this.remaining % 512);
+            this.fillBytes = 512 - (this.remaining % 512 || 512);
         }
         
         var mutex = new Mutex;
@@ -153,7 +153,7 @@ export class TarEntryWriter extends TarEntry {
         await this.stream.write(header.write());
         
         var remaining = NO_SIZE[this.type] ? 0 : this.size;
-        remaining += 512 - (remaining % 512);
+        remaining += 512 - (remaining % 512 || 512);
         
         return {
         
