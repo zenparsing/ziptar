@@ -1,11 +1,6 @@
 == TODO ==
 
-- Tar:  we are not correctly writing uid, gid, username, groupname, and (most importantly)
-  mode.  Currently native tar cannot unpack because of this.
-
 - We desperately need a formalized test suite.  What's the easiest way to create one?
-
-- What name should we use when writing extended attributes?  What does node-tar use?
 
 - Since we are using FS.stat (i.e. following links), we could end up with
   infinite recursion.  We'll need to account for this.

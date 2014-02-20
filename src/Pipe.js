@@ -10,7 +10,7 @@ export class Pipe {
         this.input = readStream;
         this.outputs = [];
         this.minBuffers = options.minBuffers >>> 0 || 1;
-        this.maxBuffers = options.maxBuffers >>> 0 || 16;
+        this.maxBuffers = options.maxBuffers >>> 0 || 2;
         this.bufferSize = options.bufferSize >>> 0 || 8 * 1024;
         this.transform = options.transform || null;
         this.free = [];

@@ -16,6 +16,11 @@ var NO_SIZE = {
     "fifo": 1
 };
 
+function fillLength(size) {
+
+    return 512 - (size % 512 || 512);
+}
+
 class TarEntry {
 
     constructor() {
@@ -79,7 +84,7 @@ export class TarEntryReader extends TarEntry {
         if (this.remaining < 0) {
         
             this.remaining = NO_SIZE[this.type] ? 0 : this.size;
-            this.fillBytes = 512 - (this.remaining % 512 || 512);
+            this.fillBytes = fillLength(this.remaining);
         }
         
         var mutex = new Mutex;
@@ -153,7 +158,7 @@ export class TarEntryWriter extends TarEntry {
         await this.stream.write(header.write());
         
         var remaining = NO_SIZE[this.type] ? 0 : this.size;
-        remaining += 512 - (remaining % 512 || 512);
+        remaining += fillLength(remaining);
         
         return {
         
@@ -203,7 +208,7 @@ export class TarEntryWriter extends TarEntry {
         
         var data = TarExtended.write(fields);
         
-        var entry = new TarEntryWriter("._" + this.name);
+        var entry = new TarEntryWriter("PaxExtended/" + this.name);
         entry.type = "extended-attributes";
         entry.stream = this.stream;
         entry.size = data.length;
