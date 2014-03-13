@@ -13,27 +13,27 @@ function getArchiveExtension(path) {
     return match ? match[0].toLowerCase() : "";
 }
 
-export async tar(list, dest, options) {
+export async function tar(list, dest, options) {
 
     return createArchive(await TarWriter.open(dest, options), list);
 }
 
-export async untar(source, dest, options) {
+export async function untar(source, dest, options) {
 
     return extractArchive(await TarReader.open(source, options), dest);
 }
 
-export async zip(list, dest, options) {
+export async function zip(list, dest, options) {
 
     return createArchive(await ZipWriter.open(dest, options), list);
 }
 
-export async unzip(source, dest, options) {
+export async function unzip(source, dest, options) {
 
     return extractArchive(await ZipReader.open(source, options), dest);
 }
 
-export async extract(source, dest) {
+export async function extract(source, dest) {
 
     source = Path.resolve(source);
     dest = dest ? Path.resolve(dest) : Path.dirname(source);
@@ -62,7 +62,7 @@ export async extract(source, dest) {
     return extractArchive(reader, dest);
 }
 
-async createArchive(archive, list) {
+async function createArchive(archive, list) {
 
     if (typeof list === "string")
         list = [list];
@@ -72,7 +72,7 @@ async createArchive(archive, list) {
     
     await archive.close();
     
-    async add(path, dir) {
+    async function add(path, dir) {
     
         var filename = Path.basename(path),
             stat = await AsyncFS.stat(path),
@@ -115,7 +115,7 @@ async createArchive(archive, list) {
     }
 }
 
-async extractArchive(archive, dest) {
+async function extractArchive(archive, dest) {
 
     var entry,
         outPath,

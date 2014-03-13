@@ -6,7 +6,7 @@ var zipSource = Path.join(__dirname, "../src"),
     zipFile = Path.join(__dirname, "_temp/archive.tar.gz"),
     temp = Path.join(__dirname, "_temp");
 
-export async main() {
+export async function main() {
     
     var source = [zipSource];
     

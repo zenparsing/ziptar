@@ -1,6 +1,6 @@
 import { Mutex, Condition } from "../src/Mutex.js";
 
-export async main() {
+export async function main() {
 
 
     var m = new Mutex;

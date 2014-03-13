@@ -4,7 +4,7 @@ import { tar, untar, extract } from "../src/main.js";
 
 var file = Path.join(__dirname, "_temp/tar-sample.tar.gz");
 
-export async main() {
+export async function main() {
     
     await extract(file);
     /*

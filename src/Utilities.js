@@ -57,7 +57,7 @@ export function normalizePath(path) {
 }
 
 // Creates a directory, if it doesn't already exist
-export async createDirectory(path, recurse) {
+export async function createDirectory(path, recurse) {
 
     if (recurse) {
     

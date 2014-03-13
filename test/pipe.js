@@ -5,7 +5,7 @@ import { CopyStream } from "../src/CopyStream.js";
 
 module Path from "node:path";
 
-export async main() {
+export async function main() {
 
     var input = await FileStream.open(Path.resolve(__dirname, "_data/Scanner.js"), "r");
     var output = await FileStream.open(Path.resolve(__dirname, "_temp/pipeout.js.gz"), "w");

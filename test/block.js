@@ -4,7 +4,7 @@ import { CopyStream } from "../src/CopyStream.js";
 import { FileStream } from "../src/FileStream.js";
 import { Pipe } from "../src/Pipe.js";
 
-export async main() {
+export async function main() {
 
     var inStream = await FileStream.open(Path.join(__dirname, "../_ref/infozip-spec.txt"), "r");
     var p1 = new Pipe(inStream, { bufferSize: 6 * 1024, maxBuffers: 2 });
