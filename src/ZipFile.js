@@ -1,9 +1,10 @@
 module Path from "node:path";
 
+import { File } from "package:afs";
+
 import { ZipEndHeader } from "ZipEndHeader.js";
 import { ZipEntryHeader } from "ZipEntryHeader.js";
 import { ZipEntryReader, ZipEntryWriter } from "ZipEntry.js";
-import { FileStream } from "FileStream.js";
 import { BufferWriter } from "BufferWriter.js";
 import { BufferReader } from "BufferReader.js";
 
@@ -41,7 +42,7 @@ export class ZipReader {
     
         path = Path.resolve(path);
         
-        var zip = new this(await FileStream.open(path, "r"));
+        var zip = new this(await File.openRead(path));
         await zip._readDirectory();
         return zip;
     }
@@ -170,7 +171,7 @@ export class ZipWriter {
     static async open(path) {
     
         path = Path.resolve(path);
-        return new this(await FileStream.open(path, "w"));
+        return new this(await File.openWrite(path));
     }
     
     _packEndHeader(start) {

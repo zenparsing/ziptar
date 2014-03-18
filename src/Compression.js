@@ -1,9 +1,8 @@
-import { Condition, Mutex } from "Mutex.js";
-import { Options } from "Utilities.js";
+import { Condition, Mutex } from "package:streamware";
 
 var Z = process.binding("zlib");
 
-var modes = {
+var MODES = {
 
     "inflate": Z.INFLATE,
     "deflate": Z.DEFLATE,
@@ -13,11 +12,16 @@ var modes = {
     "gunzip": Z.GUNZIP   
 }
 
+function Opt(options = {}) {
+
+    return (name, val) => name in options ? options[name] : val;
+}
+
 class ZipStream {
 
     constructor(mode, options) {
 
-        if (!mode || modes[mode] === void 0)
+        if (!mode || MODES[mode] === void 0)
             throw new Error("Invalid mode");
         
         this.output = null;
@@ -28,21 +32,21 @@ class ZipStream {
         this.outputReady = new Condition;
         this.outputDone = new Condition;
         
-        var opt = new Options(options);
+        var opt = Opt(options);
         
-        this.zlib = new Z.Zlib(modes[mode]);
+        this.zlib = new Z.Zlib(MODES[mode]);
         
         this.zlib.init(
-            opt.get("windowBits", 15),
-            opt.get("compression", Z.Z_DEFAULT_COMPRESSION),
-            opt.get("memoryLevel", 8),
-            opt.get("strategy", Z.Z_DEFAULT_STRATEGY),
-            opt.get("dictionary", void 0));
+            opt("windowBits", 15),
+            opt("compression", Z.Z_DEFAULT_COMPRESSION),
+            opt("memoryLevel", 8),
+            opt("strategy", Z.Z_DEFAULT_STRATEGY),
+            opt("dictionary"));
     }
     
     async read(buffer) {
     
-        return this.reading.lock($=> {
+        return this.reading.lock(async $=> {
         
             // Null signals end-of-stream
             if (!this.zlib)
@@ -77,7 +81,7 @@ class ZipStream {
     
     async _write(buffer, end) {
     
-        return this.writing.lock($=> {
+        return this.writing.lock(async $=> {
         
             if (!this.zlib)
                 throw new Error("Stream closed");
@@ -85,7 +89,7 @@ class ZipStream {
             var deferred = Promise.defer(),
                 written = 0;
             
-            var pump = (buffer, start, length) => {
+            var pump = async (buffer, start, length) => {
         
                 // Wait for a reader
                 if (this.outputState !== "ready")
@@ -109,7 +113,7 @@ class ZipStream {
                 req.output = buffer;
             
                 // When the command has finished...
-                req.callback = (inLeft, outLeft) => {
+                req.callback = async (inLeft, outLeft) => {
             
                     try {
                 

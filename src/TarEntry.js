@@ -1,7 +1,8 @@
+import { Mutex } from "package:streamware";
+
 import { TarHeader } from "TarHeader.js";
 import { TarExtended } from "TarExtended.js";
 import { normalizePath, zeroFill } from "Utilities.js";
-import { Mutex } from "Mutex.js";
 
 var OCTAL_755 = 493,
     OCTAL_644 = 420;
@@ -91,7 +92,7 @@ export class TarEntryReader extends TarEntry {
     
         return {
         
-            read: buffer => mutex.lock($=> {
+            read: buffer => mutex.lock(async $=> {
     
                 if (this.remaining === 0)
                     return null;
@@ -162,7 +163,7 @@ export class TarEntryWriter extends TarEntry {
         
         return {
         
-            write: buffer => mutex.lock($=> {
+            write: buffer => mutex.lock(async $=> {
             
                 await this.stream.write(buffer);
                 
@@ -172,7 +173,7 @@ export class TarEntryWriter extends TarEntry {
                     throw new Error("Invalid entry length");
             }),
             
-            end: $=> mutex.lock($=> {
+            end: $=> mutex.lock(async $=> {
             
                 if (remaining <= 0)
                     return;

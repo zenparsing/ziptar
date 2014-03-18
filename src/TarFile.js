@@ -1,12 +1,12 @@
 module Path from "node:path";
 
-import { FileStream } from "FileStream.js";
+import { File } from "package:afs";
+import { CopyStream, Pipe } from "package:streamware";
+
 import { TarExtended } from "TarExtended.js";
 import { TarHeader } from "TarHeader.js";
 import { TarEntryReader, TarEntryWriter } from "TarEntry.js";
 import { GZipStream, GUnzipStream } from "Compression.js";
-import { CopyStream } from "CopyStream.js";
-import { Pipe } from "Pipe.js";
 import { zeroFill, isZeroFilled, Options } from "Utilities.js";
 
 export class TarReader {
@@ -51,7 +51,7 @@ export class TarReader {
     static async open(path, unzip) {
     
         path = Path.resolve(path);
-        return new this(await FileStream.open(path, "r"), unzip);
+        return new this(await File.openRead(path), unzip);
     }
     
     async nextEntry() {
@@ -217,7 +217,7 @@ export class TarWriter {
     static async open(path, options) {
     
         path = Path.resolve(path);
-        return new this(await FileStream.open(path, "w"), options);
+        return new this(await File.openWrite(path), options);
     }
     
 }

@@ -33,11 +33,8 @@ export class TarExtended {
         }
     }
     
-    static read(buffer, fields) {
+    static read(buffer, fields = {}) {
     
-        if (fields == null)
-            fields = {};
-            
         var pos = 0,
             next,
             key,

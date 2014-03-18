@@ -1,11 +1,11 @@
 module Path from "node:path";
-module AsyncFS from "AsyncFS.js";
+
+module AFS from "package:afs";
+import { File, Directory } from "package:afs";
+import { Pipe } from "package:streamware";
 
 import { ZipReader, ZipWriter } from "ZipFile.js";
 import { TarReader, TarWriter } from "TarFile.js";
-import { createDirectory } from "Utilities.js";
-import { FileStream } from "FileStream.js";
-import { Pipe } from "Pipe.js";
 
 function getArchiveExtension(path) {
 
@@ -75,7 +75,7 @@ async function createArchive(archive, list) {
     async function add(path, dir) {
     
         var filename = Path.basename(path),
-            stat = await AsyncFS.stat(path),
+            stat = await AFS.stat(path),
             isDir = stat.isDirectory();
         
         if (!isDir && !stat.isFile())
@@ -94,7 +94,7 @@ async function createArchive(archive, list) {
         
             await outStream.end();
             
-            var list = (await AsyncFS.readdir(path))
+            var list = (await Directory.list(path))
                 .filter(item => item !== ".." && item !== ".")
                 .map(item => Path.join(path, item));
             
@@ -103,7 +103,7 @@ async function createArchive(archive, list) {
         
         } else if (entry.isFile) {
             
-            var pipe = new Pipe(await FileStream.open(path, "r"));
+            var pipe = new Pipe(await File.openRead(path));
             pipe.connect(outStream, true);
             await pipe.start();
             
@@ -124,7 +124,7 @@ async function extractArchive(archive, dest) {
         pipe;
     
     // Create the destination directory
-    await createDirectory(dest);
+    await Directory.create(dest);
     
     while (entry = await archive.nextEntry()) {
     
@@ -132,16 +132,16 @@ async function extractArchive(archive, dest) {
         
         if (entry.isDirectory) {
         
-            await createDirectory(outPath, true);
+            await Directory.create(outPath, true);
             
         } else if (entry.isFile) {
         
             // Create intermediate directories
-            await createDirectory(Path.dirname(outPath), true);
+            await Directory.create(Path.dirname(outPath), true);
         
             // Open streams and pipe them together
             inStream = await entry.open();
-            outStream = await FileStream.open(outPath, "w");
+            outStream = await File.openWrite(outPath);
         
             pipe = new Pipe(inStream);
             pipe.connect(outStream, true);
@@ -150,7 +150,7 @@ async function extractArchive(archive, dest) {
             await pipe.start();
             
             // Set the last modified time for the file
-            await AsyncFS.utimes(outPath, entry.lastModified, entry.lastModified);
+            await AFS.utimes(outPath, entry.lastModified, entry.lastModified);
         }
     }
     

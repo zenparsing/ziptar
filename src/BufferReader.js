@@ -6,26 +6,20 @@ export class BufferReader {
         this.position = 0;
     }
     
-    read(length, target, offset) {
+    read(length, target = new Buffer(length), offset = 0) {
     
         if (length === 0)
             return null;
         
-        if (target === void 0) {
-        
-            target = new Buffer(length);
-            offset = 0;
-        }
-        
         this.buffer.copy(target, offset, this._advance(length), this.position);
     }
     
-    readString(byteLength, encoding) {
+    readString(byteLength, encoding = "utf8") {
     
         if (byteLength === 0)
             return "";
         
-        return this.buffer.toString(encoding || "utf8", this._advance(byteLength), this.position);
+        return this.buffer.toString(encoding, this._advance(byteLength), this.position);
     }
     
     readUInt8(noAssert) {

@@ -1,12 +1,11 @@
+import { CopyStream, Pipe, Mutex } from "package:streamware";
+
 import { ZipDataHeader } from "ZipDataHeader.js";
 import { ZipDataDescriptor } from "ZipDataDescriptor.js";
 import { Crc32, normalizePath } from "Utilities.js";
 import { BufferWriter } from "BufferWriter.js";
 import { BufferReader } from "BufferReader.js";
 import { InflateStream, DeflateStream } from "Compression.js";
-import { CopyStream } from "CopyStream.js";
-import { Pipe } from "Pipe.js";
-import { Mutex } from "Mutex.js";
 
 var STORED = 0,
     DEFLATED = 8,
@@ -88,7 +87,7 @@ export class ZipEntryReader extends ZipEntry {
             transform: data => {
             
                 // End the stream if file has been read
-                if (bytesLeft === 0)
+                if (bytesLeft === 0 || !data)
                     return null;
                 
                 // Only read the remaining data for this file
@@ -110,7 +109,7 @@ export class ZipEntryReader extends ZipEntry {
         // Return a stream for reading
         return {
         
-            read: buffer => mutex.lock($=> {
+            read: buffer => mutex.lock(async $=> {
             
                 var read = await zipStream.read(buffer);
                 
@@ -194,7 +193,8 @@ export class ZipEntryWriter extends ZipEntry {
             transform: data => {
             
                 // Record the size of the compressed data
-                this.compressedSize += data.length;
+                if (data)
+                    this.compressedSize += data.length;
                 
                 return data;
             }
@@ -209,7 +209,7 @@ export class ZipEntryWriter extends ZipEntry {
         // Return a stream for writing
         return {
             
-            write: buffer => mutex.lock($=> { 
+            write: buffer => mutex.lock(async $=> { 
 
                 // Record the size of the raw data
                 this.size += buffer.length;
@@ -221,7 +221,7 @@ export class ZipEntryWriter extends ZipEntry {
                 return await zipStream.write(buffer);
             }),
             
-            end: $=> mutex.lock($=> {
+            end: $=> mutex.lock(async $=> {
                 
                 await zipStream.end();
                 await pipeDone;
@@ -242,8 +242,8 @@ export class ZipEntryWriter extends ZipEntry {
         // Return a no-op write stream
         return {
         
-            write: $=> { throw await new Error("Cannot write to a directory entry") },
-            end: $=> { await null }
+            write: async $=> { throw new Error("Cannot write to a directory entry") },
+            end: async $=> { await null }
         }
     }
     
