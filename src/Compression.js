@@ -86,8 +86,11 @@ class ZipStream {
             if (!this.zlib)
                 throw new Error("Stream closed");
             
-            var deferred = Promise.defer(),
-                written = 0;
+            var written = 0, 
+                resolver,
+                promise;
+            
+            promise = new Promise((resolve, reject) => resolver = { resolve, reject });
             
             var pump = async (buffer, start, length) => {
         
@@ -133,12 +136,12 @@ class ZipStream {
                         } else {
                 
                             // Write is complete
-                            deferred.resolve();
+                            resolver.resolve();
                         }
                     
                     } catch (x) {
                 
-                        deferred.reject(x);
+                        resolver.reject(x);
                     }
                 };
             };
@@ -146,7 +149,7 @@ class ZipStream {
             // Set an error handler specific to this write operation
             this.zlib.onerror = (msg, errno) => {
             
-                deferred.reject(this.error = new Error(msg));
+                resolver.reject(this.error = new Error(msg));
                 
                 // End the stream ungracefully
                 this.zlib = null;
@@ -161,7 +164,7 @@ class ZipStream {
             await pump(buffer);
         
             // Wait for write to complete
-            await deferred.promise;
+            await promise;
         
             // Clear the error handler
             this.zlib.onerror = undefined;
