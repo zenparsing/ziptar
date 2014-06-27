@@ -1,4 +1,4 @@
-module Path from "node:path";
+var Path = require("path");
 
 import { CopyStream } from "../src/CopyStream.js";
 import { FileStream } from "../src/FileStream.js";

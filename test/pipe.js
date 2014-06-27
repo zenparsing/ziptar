@@ -3,7 +3,7 @@ import { FileStream } from "../src/FileStream.js";
 import { GZipStream, GUnzipStream } from "../src/Compression.js";
 import { CopyStream } from "../src/CopyStream.js";
 
-module Path from "node:path";
+var Path = require("path");
 
 export async function main() {
 

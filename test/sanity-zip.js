@@ -1,4 +1,4 @@
-module Path from "node:path";
+var Path = require("path");
 
 import { zip, unzip } from "../src/main.js";
 
