@@ -1,7 +1,8 @@
-module Path from "node:path";
+var Path = require("path");
 
-module AFS from "package:afs";
-import { File, Directory } from "package:afs";
+module AFS from "package:zen-fs";
+
+import { File, Directory } from "package:zen-fs";
 import { Pipe } from "package:streamware";
 
 import { ZipReader, ZipWriter } from "ZipFile.js";

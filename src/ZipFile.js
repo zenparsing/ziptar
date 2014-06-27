@@ -1,6 +1,6 @@
-module Path from "node:path";
+var Path = require("path");
 
-import { File } from "package:afs";
+import { File } from "package:zen-fs";
 
 import { ZipEndHeader } from "ZipEndHeader.js";
 import { ZipEntryHeader } from "ZipEntryHeader.js";
