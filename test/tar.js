@@ -1,4 +1,4 @@
-module Path from "node:path";
+var Path = require("path");
 
 import { tar, untar, extract } from "../src/main.js";
 

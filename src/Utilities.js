@@ -50,7 +50,7 @@ export function normalizePath(path) {
     return path
         .replace(/\\+/g, "/")        // Convert "\" to "/"
         .replace(/\/\/+/g, "/")      // Collapse "//"
-        .replace(/^(\w+:)?\//, "")   // Remove absolute prefixes
+        .replace(/^(\w+:)?\//, "");  // Remove absolute prefixes
 }
 
 // == CRC-32 Redundancy Checking ==

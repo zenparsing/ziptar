@@ -74,21 +74,21 @@ export class TarReader {
             switch (entry.type) {
     
                 case "global-attributes": 
-                    this._readAttributes(entry, this.attributes);
+                    await this._readAttributes(entry, this.attributes);
                     break;
             
                 case "old-attributes":
                 case "extended-attributes":
-                    this._readAttributes(entry, attributes);
+                    await this._readAttributes(entry, attributes);
                     break;
                 
                 case "long-link-name": 
-                    link = this._readString(entry);
+                    link = await this._readString(entry);
                     break;
             
                 case "long-path-name":
                 case "old-long-path-name": 
-                    path = this._readString(entry);
+                    path = await this._readString(entry);
                     break;
                 
                 default:
@@ -108,13 +108,15 @@ export class TarReader {
     
     async _readString(entry) {
     
-        var data = await entry.read(new Buffer(entry.size));
-        return data.toString("utf8");
+        var stream = await entry.open();
+        var data = await stream.read(new Buffer(entry.size));
+        return data.toString("utf8").replace(/\x00/g, "");
     }
     
     async _readAttributes(entry, fields) {
     
-        var data = await entry.read(new Buffer(entry.size));
+        var stream = await entry.open();
+        var data = await stream.read(new Buffer(entry.size));
         return TarExtended.read(data, fields);
     }
     
