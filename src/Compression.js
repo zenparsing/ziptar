@@ -1,4 +1,4 @@
-import { Condition, Mutex } from "package:streamware";
+import { Condition, Mutex } from "streamware";
 
 var Z = process.binding("zlib");
 
@@ -9,7 +9,7 @@ var MODES = {
     "inflate-raw": Z.INFLATERAW,
     "deflate-raw": Z.DEFLATERAW,
     "gzip": Z.GZIP,
-    "gunzip": Z.GUNZIP   
+    "gunzip": Z.GUNZIP
 }
 
 function Opt(options = {}) {
@@ -23,7 +23,7 @@ class ZipStream {
 
         if (!mode || MODES[mode] === void 0)
             throw new Error("Invalid mode");
-        
+
         this.output = null;
         this.outputState = "";
         this.error = null;
@@ -31,11 +31,11 @@ class ZipStream {
         this.writing = new Mutex;
         this.outputReady = new Condition;
         this.outputDone = new Condition;
-        
+
         var opt = Opt(options);
-        
+
         this.zlib = new Z.Zlib(MODES[mode]);
-        
+
         this.zlib.init(
             opt("windowBits", 15),
             opt("compression", Z.Z_DEFAULT_COMPRESSION),
@@ -43,66 +43,66 @@ class ZipStream {
             opt("strategy", Z.Z_DEFAULT_STRATEGY),
             opt("dictionary"));
     }
-    
+
     async read(buffer) {
-    
+
         return this.reading.lock(async $=> {
-        
+
             // Null signals end-of-stream
             if (!this.zlib)
                 return null;
-        
+
             this.output = buffer;
-            
+
             // Signal that a buffer is ready and wait until buffer is done
             this.outputState = "ready";
             this.outputReady.notify();
             await this.outputDone.wait();
-            
+
             var b = this.output;
             this.output = null;
             this.outputState = "";
-            
+
             return b;
-            
+
         });
     }
-    
+
     async write(buffer) {
-    
+
         return await this._write(buffer, false);
     }
-    
+
     async end() {
-    
+
         // Write the final, flushing buffer
         return await this._write(new Buffer(0), true);
     }
-    
+
     async _write(buffer, end) {
-    
+
         return this.writing.lock(async $=> {
-        
+
             if (!this.zlib)
                 throw new Error("Stream closed");
-            
-            var written = 0, 
+
+            var written = 0,
                 resolver,
                 promise;
-            
+
             promise = new Promise((resolve, reject) => resolver = { resolve, reject });
-            
+
             var pump = async (buffer, start, length) => {
-        
+
                 // Wait for a reader
                 if (this.outputState !== "ready")
                     await this.outputReady.wait();
-            
+
                 var inOffset = start || 0,
                     inLength = length || (buffer.length - inOffset),
                     outOffset = 0,
                     outLength = this.output.length;
-            
+
                 // Send a write command to zlib
                 var req = this.zlib.write(
                     end ? Z.Z_FINISH : Z.Z_NO_FLUSH,
@@ -112,77 +112,77 @@ class ZipStream {
                     this.output,
                     outOffset,
                     outLength);
-            
+
                 req.output = buffer;
-            
+
                 // When the command has finished...
                 req.callback = async (inLeft, outLeft) => {
-            
+
                     try {
-                
+
                         written += inLength - inLeft;
-                
+
                         // Notify reader that output buffer is ready
                         this.output = this.output.slice(0, outLength - outLeft);
                         this.outputState = "done";
                         this.outputDone.notify();
-                
+
                         if (outLeft === 0) {
-                    
+
                             // If the output buffer was completely used, assume that there
                             // is more data to write
                             await pump(buffer, buffer.length - inLeft);
-                    
+
                         } else {
-                
+
                             // Write is complete
                             resolver.resolve();
                         }
-                    
+
                     } catch (x) {
-                
+
                         resolver.reject(x);
                     }
                 };
             };
-            
+
             // Set an error handler specific to this write operation
             this.zlib.onerror = (msg, errno) => {
-            
+
                 resolver.reject(this.error = new Error(msg));
-                
+
                 // End the stream ungracefully
                 this.zlib = null;
-                
+
                 // Signal that we are done with the output buffer
                 this.output = null;
                 this.outputState = "done";
                 this.outputDone.notify();
             };
-            
+
             // Start writing data
             await pump(buffer);
-        
+
             // Wait for write to complete
             await promise;
-        
+
             // Clear the error handler
             this.zlib.onerror = undefined;
-            
+
             // Close zlib if we are ending the stream
             if (end) {
-                
+
                 this.ended = true;
                 this.zlib.close();
                 this.zlib = null;
             }
-        
+
             return written;
-        
+
         });
-        
+
     }
-    
+
 }
 
 export class DeflateStream extends ZipStream {

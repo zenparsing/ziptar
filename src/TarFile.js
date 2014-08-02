@@ -1,133 +1,133 @@
 var Path = require("path");
 
-import { File } from "package:zen-fs";
-import { CopyStream, Pipe } from "package:streamware";
+import { File } from "zen-fs";
+import { CopyStream, Pipe } from "streamware";
 
-import { TarExtended } from "TarExtended.js";
-import { TarHeader } from "TarHeader.js";
-import { TarEntryReader, TarEntryWriter } from "TarEntry.js";
-import { GZipStream, GUnzipStream } from "Compression.js";
-import { zeroFill, isZeroFilled, Options } from "Utilities.js";
+import { TarExtended } from "./TarExtended.js";
+import { TarHeader } from "./TarHeader.js";
+import { TarEntryReader, TarEntryWriter } from "./TarEntry.js";
+import { GZipStream, GUnzipStream } from "./Compression.js";
+import { zeroFill, isZeroFilled, Options } from "./Utilities.js";
 
 export class TarReader {
 
     constructor(fileStream, options) {
-    
+
         this.file = fileStream;
         this.attributes = {};
         this.stream = this.file;
         this.current = null;
-        
+
         var opt = new Options(options),
             pipe;
-        
+
         if (opt.get("unzip")) {
-        
+
             var unzipStream = new GUnzipStream;
-            
+
             pipe = new Pipe(this.stream);
             pipe.connect(unzipStream, true);
             pipe.start();
-            
+
             this.stream = unzipStream;
         }
-        
+
         var blockStream = new CopyStream;
-        
+
         pipe = new Pipe(this.stream);
         pipe.connect(blockStream, true);
         pipe.start();
-        
+
         this.stream = blockStream;
     }
-    
+
     async close() {
-    
+
         await this.file.close();
-        
+
         // TODO: Should we be waiting on pipes as well?
     }
-    
+
     static async open(path, unzip) {
-    
+
         path = Path.resolve(path);
         return new this(await File.openRead(path), unzip);
     }
-    
+
     async nextEntry() {
-    
+
         var attributes = {},
             link = null,
             path = null,
             done = false,
             entry;
-        
+
         while (!done) {
-        
+
             entry = await this._nextEntry();
-            
+
             this.current = entry;
-            
+
             if (!entry)
                 return null;
-        
+
             switch (entry.type) {
-    
-                case "global-attributes": 
+
+                case "global-attributes":
                     await this._readAttributes(entry, this.attributes);
                     break;
-            
+
                 case "old-attributes":
                 case "extended-attributes":
                     await this._readAttributes(entry, attributes);
                     break;
-                
-                case "long-link-name": 
+
+                case "long-link-name":
                     link = await this._readString(entry);
                     break;
-            
+
                 case "long-path-name":
-                case "old-long-path-name": 
+                case "old-long-path-name":
                     path = await this._readString(entry);
                     break;
-                
+
                 default:
                     done = true;
                     break;
             }
         }
-        
+
         this._copyAttributes(this.attributes, entry);
         this._copyAttributes(attributes, entry);
-        
+
         if (link) entry.linkPath = link;
         if (path) entry.name = path;
-        
+
         return entry;
     }
-    
+
     async _readString(entry) {
-    
+
         var stream = await entry.open();
         var data = await stream.read(new Buffer(entry.size));
         return data.toString("utf8").replace(/\x00/g, "");
     }
-    
+
     async _readAttributes(entry, fields) {
-    
+
         var stream = await entry.open();
         var data = await stream.read(new Buffer(entry.size));
         return TarExtended.read(data, fields);
     }
-    
+
     _copyAttributes(fields, entry) {
-    
+
         Object.keys(fields).forEach(k => {
-            
+
             var v = fields[k];
-            
+
             switch (k) {
-            
+
                 case "mtime": entry.lastModified = v; break;
                 case "size": entry.size = v; break;
                 case "uname": entry.userName = v; break;
@@ -137,90 +137,90 @@ export class TarReader {
                 case "linkpath": entry.linkPath = v; break;
                 case "path": entry.name = v; break;
             }
-            
+
             entry.attributes[k] = v;
-            
+
         });
     }
-    
+
     async _nextEntry() {
-    
+
         var buffer = new Buffer(512),
             block;
-        
+
         // Completely read current entry before advancing
         if (this.current) {
-        
+
             var reader = await this.current.open();
             while (await reader.read(buffer)) {}
         }
-        
+
         while (true) {
-        
+
             block = await this.stream.read(buffer);
-            
+
             if (!block)
                 return null;
-        
+
             if (!isZeroFilled(block))
                 break;
         }
-        
+
         var header = TarHeader.fromBuffer(block),
             entry = new TarEntryReader;
-        
+
         // Copy properties from the header
         Object.keys(header).forEach(k => entry[k] = header[k]);
         entry.stream = this.stream;
-        
+
         return entry;
     }
-    
+
 }
 
 export class TarWriter {
 
     constructor(fileStream, options) {
-    
+
         this.file = fileStream;
         this.stream = fileStream;
-        
+
         var opt = new Options(options);
-        
+
         if (opt.get("zip")) {
-        
+
             var zipStream = new GZipStream,
                 pipe = new Pipe(zipStream);
-            
+
             pipe.connect(this.stream, true);
             pipe.start();
-            
+
             this.stream = zipStream;
         }
     }
-    
+
     async close() {
-    
+
         // Tar archive ends with two zero-filled blocks
         await this.stream.write(zeroFill(1024));
-        
+
         await this.stream.end();
-        
+
         // TODO: Should we be waiting on pipes, as well?
     }
-    
+
     createEntry(name) {
-    
+
         var writer = new TarEntryWriter(name);
         writer.stream = this.stream;
         return writer;
     }
-    
+
     static async open(path, options) {
-    
+
         path = Path.resolve(path);
         return new this(await File.openWrite(path), options);
     }
-    
+
 }
 
