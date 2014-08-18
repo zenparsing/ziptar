@@ -1,6 +1,5 @@
-module Path from "node:path";
-module AFS from "zen-fs";
-
+import * as Path from "node:path";
+import * as AFS from "zen-fs";
 import { File, Directory } from "zen-fs";
 import { Pipe } from "streamware";
 

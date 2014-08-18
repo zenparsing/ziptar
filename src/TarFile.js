@@ -1,5 +1,4 @@
-var Path = require("path");
-
+import * as Path from "node:path";
 import { File } from "zen-fs";
 import { CopyStream, Pipe } from "streamware";
 
