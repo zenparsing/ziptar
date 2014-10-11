@@ -1,13 +1,14 @@
-import { Mutex } from "streamware";
+import { compose, limitBytes, bufferBytes, forEach } from "streamware";
 
 import { TarHeader } from "./TarHeader.js";
 import { TarExtended } from "./TarExtended.js";
 import { normalizePath, zeroFill } from "./Utilities.js";
 
-var OCTAL_755 = 493,
+const
+    OCTAL_755 = 493,
     OCTAL_644 = 420;
 
-var NO_SIZE = {
+const NO_SIZE = {
 
     "link": 1,
     "symlink": 1,
@@ -39,6 +40,7 @@ class TarEntry {
         this.deviceMajor = 0;
         this.deviceMinor = 0;
         this.attributes = {};
+
         this.stream = null;
     }
 
@@ -72,54 +74,38 @@ export class TarEntryReader extends TarEntry {
     constructor() {
 
         super();
-
-        this.remaining = -1;
-        this.fillBytes = -1;
+        this.reading = false;
     }
 
-    async open() {
+    async *read() {
 
         if (!this.stream)
             throw new Error("No input stream");
 
-        if (this.remaining < 0) {
+        // Stream is forward-only:  it can only be read once
+        if (this.reading)
+            return;
 
-            this.remaining = NO_SIZE[this.type] ? 0 : this.size;
-            this.fillBytes = fillLength(this.remaining);
-        }
+        this.reading = true;
 
-        var mutex = new Mutex;
+        let remaining = NO_SIZE[this.type] ? 0 : this.size,
+            fillBytes = fillLength(remaining);
 
-        return {
+        // Read data blocks
+        for async (let chunk of compose(this.stream, [
 
-            read: buffer => mutex.lock(async $=> {
+            input => limitBytes(input, remaining),
+            input => bufferBytes(input, {}),
 
-                if (this.remaining === 0)
-                    return null;
+        ])) yield chunk;
 
-                if (this.remaining < buffer.length)
-                    buffer = buffer.slice(0, this.remaining);
+        // Read past block padding
+        for async (let chunk of compose(this.stream, [
 
-                var read = await this.stream.read(buffer);
+            input => limitBytes(input, fillBytes),
+            input => bufferBytes(input, {})
 
-                if (read) {
-
-                    this.remaining -= read.length;
-
-                    // Read past block padding
-                    if (this.remaining === 0 && this.fillBytes > 0)
-                        await this.stream.read(new Buffer(this.fillBytes));
-
-                } else {
-
-                    this.remaining = 0;
-                }
-
-                return read;
-
-            })
-
-        };
+        ])) ;
     }
 
 }
@@ -129,7 +115,6 @@ export class TarEntryWriter extends TarEntry {
     constructor(name) {
 
         super();
-
         this.name = name;
 
         if (this.name.endsWith("/")) {
@@ -139,14 +124,13 @@ export class TarEntryWriter extends TarEntry {
         }
     }
 
-    async open() {
+    async write(input = []) {
 
         if (!this.stream)
             throw new Error("No output stream");
 
-        var header = TarHeader.fromEntry(this),
-            extended = header.getOverflow(),
-            mutex = new Mutex;
+        let header = TarHeader.fromEntry(this),
+            extended = header.getOverflow();
 
         // Copy attributes to extended collection
         Object.keys(this.attributes).forEach(k => extended[k] = this.attributes[k]);
@@ -156,44 +140,32 @@ export class TarEntryWriter extends TarEntry {
             await this._writeExtended(extended);
 
         // Write the entry header
-        await this.stream.write(header.write());
+        await this.stream.next(header.write());
 
-        var remaining = NO_SIZE[this.type] ? 0 : this.size;
+        let remaining = NO_SIZE[this.type] ? 0 : this.size;
         remaining += fillLength(remaining);
 
-        return {
+        for async (let chunk of input) {
 
-            write: buffer => mutex.lock(async $=> {
+            remaining -= chunk.length;
 
-                await this.stream.write(buffer);
+            if (remaining < 0)
+                throw new Error("Invalid entry length");
 
-                remaining -= buffer.length;
+            await this.stream.next(chunk);
+        }
 
-                if (remaining < 0)
-                    throw new Error("Invalid entry length");
-            }),
+        if (remaining > 0) {
 
-            end: $=> mutex.lock(async $=> {
+            let empty = zeroFill(Math.min(remaining, 8 * 1024));
 
-                if (remaining <= 0)
-                    return;
+            while (remaining > 0) {
 
-                var buffer = zeroFill(Math.min(remaining, 8 * 1024)),
-                    data;
-
-                while (remaining > 0) {
-
-                    data = remaining < buffer.length ?
-                        buffer.slice(0, remaining) :
-                        buffer;
-
-                    await this.stream.write(data);
-
-                    remaining -= data.length;
-                }
-            })
-
-        };
+                let data = remaining < empty.length ? empty.slice(0, remaining) : empty;
+                await this.stream.next(data);
+                remaining -= data.length;
+            }
+        }
     }
 
     async _writeExtended(fields) {
@@ -207,16 +179,14 @@ export class TarEntryWriter extends TarEntry {
                 return;
         }
 
-        var data = TarExtended.write(fields);
+        let data = TarExtended.write(fields),
+            entry = new TarEntryWriter("PaxExtended/" + this.name);
 
-        var entry = new TarEntryWriter("PaxExtended/" + this.name);
         entry.type = "extended-attributes";
         entry.stream = this.stream;
         entry.size = data.length;
 
-        var stream = await entry.open();
-        await stream.write(data);
-        await stream.end();
+        await entry.write([data]);
     }
 
 }

@@ -1,14 +1,14 @@
 import * as Path from "node:path";
-import * as AFS from "zen-fs";
+import * as FS from "zen-fs";
 import { File, Directory } from "zen-fs";
-import { Pipe } from "streamware";
+import { compose, bufferBytes } from "streamware";
 
 import { ZipReader, ZipWriter } from "./ZipFile.js";
 import { TarReader, TarWriter } from "./TarFile.js";
 
 function getArchiveExtension(path) {
 
-    var match = /(\.tar)?\.[^\.]+$/i.exec(Path.basename(path));
+    let match = /(\.tar)?\.[^\.]+$/i.exec(Path.basename(path));
     return match ? match[0].toLowerCase() : "";
 }
 
@@ -37,7 +37,7 @@ export async function extract(source, dest) {
     source = Path.resolve(source);
     dest = dest ? Path.resolve(dest) : Path.dirname(source);
 
-    var reader;
+    let reader;
 
     switch (getArchiveExtension(source)) {
 
@@ -66,49 +66,44 @@ async function createArchive(archive, list) {
     if (typeof list === "string")
         list = [list];
 
-    for (var i = 0; i < list.length; ++i)
-        await add(Path.resolve(list[i]), "");
+    for (let path of list)
+        await add(Path.resolve(path), "");
 
     await archive.close();
 
     async function add(path, dir) {
 
-        var filename = Path.basename(path),
-            stat = await AFS.stat(path),
+        let filename = Path.basename(path),
+            stat = await FS.stat(path),
             isDir = stat.isDirectory();
 
         if (!isDir && !stat.isFile())
             throw new Error("Invalid path");
 
-        var entry = archive.createEntry(dir + filename + (isDir ? "/" : ""));
+        let entry = archive.createEntry(dir + filename + (isDir ? "/" : ""));
 
         entry.lastModified = stat.mtime;
 
         if (entry.isFile)
             entry.size = stat.size;
 
-        var outStream = await entry.open();
-
         if (entry.isDirectory) {
 
-            await outStream.end();
+            await entry.write();
 
-            var list = (await Directory.list(path))
+            let list = (await Directory.list(path))
                 .filter(item => item !== ".." && item !== ".")
                 .map(item => Path.join(path, item));
 
-            for (var i = 0; i < list.length; ++i)
-                await add(list[i], entry.name);
-
-        } else if (entry.isFile) {
-
-            var pipe = new Pipe(await File.openRead(path));
-            pipe.connect(outStream, true);
-            await pipe.start();
+            for (let child of list)
+                await add(child, entry.name);
 
         } else {
 
-            await entry.close();
+            await compose(File.read(path), [
+                input => bufferBytes(input, { /* TODO */ }),
+                input => entry.write(input),
+            ]);
         }
 
     }
@@ -116,18 +111,12 @@ async function createArchive(archive, list) {
 
 async function extractArchive(archive, dest) {
 
-    var entry,
-        outPath,
-        inStream,
-        outStream,
-        pipe;
-
     // Create the destination directory
     await Directory.create(dest);
 
-    while (entry = await archive.nextEntry()) {
+    for async (let entry of archive.entries()) {
 
-        outPath = Path.join(dest, entry.name);
+        let outPath = Path.join(dest, entry.name);
 
         if (entry.isDirectory) {
 
@@ -138,18 +127,11 @@ async function extractArchive(archive, dest) {
             // Create intermediate directories
             await Directory.create(Path.dirname(outPath), true);
 
-            // Open streams and pipe them together
-            inStream = await entry.open();
-            outStream = await File.openWrite(outPath);
-
-            pipe = new Pipe(inStream);
-            pipe.connect(outStream, true);
-
-            // Start data flow
-            await pipe.start();
+            // Write the file
+            await File.write(entry.read(), outPath);
 
             // Set the last modified time for the file
-            await AFS.utimes(outPath, entry.lastModified, entry.lastModified);
+            await FS.utimes(outPath, entry.lastModified, entry.lastModified);
         }
     }
 
