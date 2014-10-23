@@ -3,7 +3,7 @@ import { File } from "zen-fs";
 
 import {
 
-    bufferBytes,
+    pumpBytes,
     gunzip,
     gzip,
     compose,
@@ -18,18 +18,16 @@ import { zeroFill, isZeroFilled, Options } from "./Utilities.js";
 
 export class TarReader {
 
-    constructor(reader, options = {}) {
+    constructor(stream, options = {}) {
 
-        this.reader = reader;
+        this.stream = stream;
         this.attributes = {};
         this.current = null;
-
-        this.stream = this.reader[Symbol.asyncIterator]();
 
         if (options.unzip) {
 
             this.stream = compose(this.stream, [
-                input => bufferBytes(this.stream, { }),
+                input => pumpBytes(this.stream, { }),
                 input => gunzip(input),
             ]);
         }
@@ -37,13 +35,13 @@ export class TarReader {
 
     async close() {
 
-        await this.reader.close();
+        await this.stream.return();
     }
 
     static async open(path, options) {
 
         path = Path.resolve(path);
-        return new this(await File.openRead(path), options);
+        return new this(await File.read(path), options);
     }
 
     async *entries() {
@@ -180,7 +178,7 @@ export class TarWriter {
 
             input => !options.zip ? input : compose(input, [
                 input => gzip(input),
-                input => bufferBytes(input, {}),
+                input => pumpBytes(input, {}),
             ]),
 
             async input => {

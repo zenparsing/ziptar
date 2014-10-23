@@ -3,7 +3,7 @@ import {
     map,
     compose,
     limitBytes,
-    bufferBytes,
+    pumpBytes,
     inflateRaw,
     deflateRaw,
 
@@ -100,11 +100,11 @@ export class ZipEntryReader extends ZipEntry {
         for async (let chunk of compose(this.reader, [
 
             input => limitBytes(input, this.compressedSize),
-            input => bufferBytes(input, { /* TODO */ }),
+            input => pumpBytes(input, { /* TODO */ }),
             input => !compressed ? input : compose(input, [
 
                 input => inflateRaw(input),
-                input => bufferBytes(input, { /* TODO */ }),
+                input => pumpBytes(input, { /* TODO */ }),
                 input => validateCRC(input, this.crc32),
             ]),
 
@@ -177,20 +177,17 @@ export class ZipEntryWriter extends ZipEntry {
             input => !compressed ? input : compose(input, [
 
                 input => deflateRaw(input),
-                input => bufferBytes(input, { /* TODO */ }),
+                input => pumpBytes(input, { /* TODO */ }),
             ]),
-
-            input => map(input, chunk => {
-
-                // Record the size of the compressed data
-                this.compressedSize += chunk.length;
-                return chunk;
-            }),
 
             async input => {
 
-                for async (let chunk of input)
-                    this.writer.write(chunk);
+                for async (let chunk of input) {
+
+                    // Record the size of the compressed data
+                    this.compressedSize += chunk.length;
+                    await this.writer.write(chunk);
+                }
 
                 // Store original file size
                 this.size = inputSize;

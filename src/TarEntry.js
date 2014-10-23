@@ -1,4 +1,4 @@
-import { compose, limitBytes, bufferBytes, forEach } from "streamware";
+import { compose, limitBytes, pumpBytes, forEach } from "streamware";
 
 import { TarHeader } from "./TarHeader.js";
 import { TarExtended } from "./TarExtended.js";
@@ -95,7 +95,7 @@ export class TarEntryReader extends TarEntry {
         for async (let chunk of compose(this.stream, [
 
             input => limitBytes(input, remaining),
-            input => bufferBytes(input, {}),
+            input => pumpBytes(input, {}),
 
         ])) yield chunk;
 
@@ -103,7 +103,7 @@ export class TarEntryReader extends TarEntry {
         for async (let chunk of compose(this.stream, [
 
             input => limitBytes(input, fillBytes),
-            input => bufferBytes(input, {})
+            input => pumpBytes(input, {})
 
         ])) ;
     }
