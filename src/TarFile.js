@@ -6,8 +6,8 @@ import {
     pumpBytes,
     gunzip,
     gzip,
-    compose,
     sinkSource,
+    forEach,
 
 } from "streamware";
 
@@ -24,13 +24,8 @@ export class TarReader {
         this.attributes = {};
         this.current = null;
 
-        if (options.unzip) {
-
-            this.stream = compose(this.stream, [
-                input => pumpBytes(this.stream, { }),
-                input => gunzip(input),
-            ]);
-        }
+        if (options.unzip)
+            this.stream = this.stream::pumpBytes()::gunzip();
     }
 
     async close() {
@@ -174,27 +169,26 @@ export class TarWriter {
 
         this.stream = sink;
 
-        this.done = compose(source, [
+        if (options.zip)
+            source = source::gzip()::pumpBytes();
 
-            input => !options.zip ? input : compose(input, [
-                input => gzip(input),
-                input => pumpBytes(input, {}),
-            ]),
+        this.done = (async $=> {
 
-            async input => {
+            try {
 
-                try {
+                for async (let chunk of source)
+                    await writer.write(chunk);
 
-                    for async (let chunk of input)
-                        await writer.write(chunk);
+            } catch (x) {
 
-                } finally {
+                console.log(x.stack);
 
-                    await writer.close();
-                }
-            },
+            } finally {
 
-        ]);
+                await writer.close();
+            }
+
+        })();
     }
 
     async close() {

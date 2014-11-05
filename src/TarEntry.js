@@ -1,4 +1,4 @@
-import { compose, limitBytes, pumpBytes, forEach } from "streamware";
+import { limitBytes, pumpBytes } from "streamware";
 
 import { TarHeader } from "./TarHeader.js";
 import { TarExtended } from "./TarExtended.js";
@@ -92,20 +92,11 @@ export class TarEntryReader extends TarEntry {
             fillBytes = fillLength(remaining);
 
         // Read data blocks
-        for async (let chunk of compose(this.stream, [
-
-            input => limitBytes(input, remaining),
-            input => pumpBytes(input, {}),
-
-        ])) yield chunk;
+        for async (let chunk of this.stream::limitBytes(remaining)::pumpBytes())
+            yield chunk;
 
         // Read past block padding
-        for async (let chunk of compose(this.stream, [
-
-            input => limitBytes(input, fillBytes),
-            input => pumpBytes(input, {})
-
-        ])) ;
+        for async (let chunk of this.stream::limitBytes(fillBytes)::pumpBytes());
     }
 
 }

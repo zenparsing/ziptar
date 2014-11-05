@@ -1,7 +1,7 @@
 import * as Path from "node:path";
 import * as FS from "zen-fs";
 import { File, Directory } from "zen-fs";
-import { compose, pumpBytes } from "streamware";
+import { pumpBytes } from "streamware";
 
 import { ZipReader, ZipWriter } from "./ZipFile.js";
 import { TarReader, TarWriter } from "./TarFile.js";
@@ -100,10 +100,7 @@ async function createArchive(archive, list) {
 
         } else {
 
-            await compose(File.read(path), [
-                input => pumpBytes(input, { /* TODO */ }),
-                input => entry.write(input),
-            ]);
+            await entry.write(File.read(path)::pumpBytes());
         }
 
     }

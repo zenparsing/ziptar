@@ -83,11 +83,11 @@ export class ZipEntryReader extends ZipEntry {
         // Advance to file data
         await this.reader.seek(this.offset + dataHeader.headerSize);
 
-        async function *validateCRC(input, value) {
+        async function *validateCRC(value) {
 
             let crc = new Crc32;
 
-            for async (let buffer of input) {
+            for async (let buffer of this) {
 
                 crc.accumulate(buffer);
                 yield buffer;
@@ -97,18 +97,13 @@ export class ZipEntryReader extends ZipEntry {
                 throw new Error("Invalid checksum");
         }
 
-        for async (let chunk of compose(this.reader, [
+        let stream = this.reader::limitBytes(this.compressedSize)::pumpBytes();
 
-            input => limitBytes(input, this.compressedSize),
-            input => pumpBytes(input, { /* TODO */ }),
-            input => !compressed ? input : compose(input, [
+        if (compressed)
+            stream = stream::inflateRaw()::pumpBytes()::validateCRC(this.crc32);
 
-                input => inflateRaw(input),
-                input => pumpBytes(input, { /* TODO */ }),
-                input => validateCRC(input, this.crc32),
-            ]),
-
-        ])) yield chunk;
+        for async (let chunk of stream)
+            yield chunk;
     }
 
 }
@@ -160,45 +155,35 @@ export class ZipEntryWriter extends ZipEntry {
         let crc = compressed ? new Crc32 : null,
             inputSize = 0;
 
-        return compose(input, [
+        let stream = input::map(buffer => {
 
-            input => map(input, buffer => {
+            // Record the size of the raw data
+            inputSize += buffer.length;
 
-                // Record the size of the raw data
-                inputSize += buffer.length;
+            // Perform checksum calculation
+            if (crc)
+                crc.accumulate(buffer);
 
-                // Perform checksum calculation
-                if (crc)
-                    crc.accumulate(buffer);
+            return buffer;
+        });
 
-                return buffer;
-            }),
+        if (compressed)
+            stream = stream::deflateRaw()::pumpBytes();
 
-            input => !compressed ? input : compose(input, [
+        for async (let chunk of stream) {
 
-                input => deflateRaw(input),
-                input => pumpBytes(input, { /* TODO */ }),
-            ]),
+            // Record the size of the compressed data
+            this.compressedSize += chunk.length;
+            await this.writer.write(chunk);
+        }
 
-            async input => {
+        // Store original file size
+        this.size = inputSize;
 
-                for async (let chunk of input) {
+        // Store checksum value
+        this.crc32 = crc ? crc.value : 0;
 
-                    // Record the size of the compressed data
-                    this.compressedSize += chunk.length;
-                    await this.writer.write(chunk);
-                }
-
-                // Store original file size
-                this.size = inputSize;
-
-                // Store checksum value
-                this.crc32 = crc ? crc.value : 0;
-
-                await this.writer.write(this._packDataDescriptor());
-            },
-
-        ]);
+        await this.writer.write(this._packDataDescriptor());
     }
 
     async _writeDirectory(input) {
