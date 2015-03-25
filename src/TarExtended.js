@@ -1,10 +1,9 @@
-var HAS = Object.prototype.hasOwnProperty,
-    SPACE = " ".charCodeAt(0),
-    NL = "\n".charCodeAt(0),
-    EQ = "=".charCodeAt(0);
-
-var NUMERIC_FIELD = /^(size|uid|gid)$/,
-    DATE_FIELD = /^[amc]time$/;
+const HAS = Object.prototype.hasOwnProperty,
+      SPACE = " ".charCodeAt(0),
+      NL = "\n".charCodeAt(0),
+      EQ = "=".charCodeAt(0),
+      NUMERIC_FIELD = /^(size|uid|gid)$/,
+      DATE_FIELD = /^[amc]time$/;
 
 export class TarExtended {
 
@@ -12,7 +11,7 @@ export class TarExtended {
 
         return new Buffer(Object.keys(fields).map(k => {
 
-            var line = ` ${ k }=${ stringify(fields[k]) }\n`,
+            let line = ` ${ k }=${ stringify(fields[k]) }\n`,
                 base = Buffer.byteLength(line),
                 len = base,
                 lenStr;
@@ -35,20 +34,17 @@ export class TarExtended {
 
     static read(buffer, fields = {}) {
 
-        var pos = 0,
-            next,
-            key,
-            val;
+        let pos = 0;
 
         while (pos < buffer.length) {
 
-            next = pos + readLength();
+            let next = pos + readLength();
             tryRead(SPACE);
 
-            key = readKey();
+            let key = readKey();
             tryRead(EQ);
 
-            val = readValue();
+            let val = readValue();
             tryRead(NL);
 
             fields[key] =
@@ -61,21 +57,21 @@ export class TarExtended {
 
         function readLength() {
 
-            var start = pos;
+            let start = pos;
             while (pos < buffer.length && peek() !== SPACE) read();
             return parseInt(buffer.toString("utf8", start, pos).trim(), 10);
         }
 
         function readKey() {
 
-            var start = pos;
+            let start = pos;
             while (pos < next && peek() !== EQ) read();
             return buffer.toString("utf8", start, pos);
         }
 
         function readValue() {
 
-            var start = pos, last = 0;
+            let start = pos, last = 0;
             while (pos < next) last = read();
             return buffer.toString("utf8", start, last == NL ? pos - 1 : pos);
         }

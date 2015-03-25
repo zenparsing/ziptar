@@ -4,9 +4,8 @@ import { TarHeader } from "./TarHeader.js";
 import { TarExtended } from "./TarExtended.js";
 import { normalizePath, zeroFill } from "./Utilities.js";
 
-const
-    OCTAL_755 = 493,
-    OCTAL_644 = 420;
+const OCTAL_755 = 493,
+      OCTAL_644 = 420;
 
 const NO_SIZE = {
 
@@ -23,11 +22,11 @@ function fillLength(size) {
     return 512 - (size % 512 || 512);
 }
 
-class TarEntry {
+export class TarEntry {
 
-    constructor() {
+    constructor(name = "") {
 
-        this.name = "";
+        this.name = name;
         this.mode = OCTAL_644;
         this.userID = 0;
         this.groupID = 0;
@@ -40,8 +39,15 @@ class TarEntry {
         this.deviceMajor = 0;
         this.deviceMinor = 0;
         this.attributes = {};
+        this.reading = false;
 
         this.stream = null;
+
+        if (this.name.endsWith("/")) {
+
+            this.type = "directory";
+            this.mode = OCTAL_755;
+        }
     }
 
     get name() { return this._name }
@@ -67,16 +73,6 @@ class TarEntry {
         }
     }
 
-}
-
-export class TarEntryReader extends TarEntry {
-
-    constructor() {
-
-        super();
-        this.reading = false;
-    }
-
     async *read() {
 
         if (!this.stream)
@@ -97,22 +93,6 @@ export class TarEntryReader extends TarEntry {
 
         // Read past block padding
         for async (let chunk of this.stream::limitBytes(fillBytes)::pumpBytes());
-    }
-
-}
-
-export class TarEntryWriter extends TarEntry {
-
-    constructor(name) {
-
-        super();
-        this.name = name;
-
-        if (this.name.endsWith("/")) {
-
-            this.type = "directory";
-            this.mode = OCTAL_755;
-        }
     }
 
     async write(input = []) {

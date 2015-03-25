@@ -15,17 +15,16 @@ import { Crc32, normalizePath } from "./Utilities.js";
 import { BufferWriter } from "./BufferWriter.js";
 import { BufferReader } from "./BufferReader.js";
 
-const
-    STORED = 0,
-    DEFLATED = 8,
-    NO_LOCAL_SIZE = 8,
-    MADE_BY_UNIX = 789;
+const STORED = 0,
+      DEFLATED = 8,
+      NO_LOCAL_SIZE = 8,
+      MADE_BY_UNIX = 789;
 
-class ZipEntry {
+export class ZipEntry {
 
-    constructor() {
+    constructor(name = "") {
 
-        this.name = "";
+        this._name = name;
         this.versionMadeBy = MADE_BY_UNIX;
         this.version = 20;
         this.flags = NO_LOCAL_SIZE;
@@ -40,6 +39,16 @@ class ZipEntry {
         this.offset = 0;
         this.extra = null;
         this.comment = "";
+        this.reader = null;
+        this.writer = null;
+
+        // Set appropriate defaults for directories
+        if (this.isDirectory) {
+
+            this.version = 10;
+            this.flags = 0;
+            this.method = STORED;
+        }
     }
 
     get name() { return this._name }
@@ -47,15 +56,6 @@ class ZipEntry {
 
     get isDirectory() { return this.name.endsWith("/") }
     get isFile() { return !this.name.endsWith("/") }
-}
-
-export class ZipEntryReader extends ZipEntry {
-
-    constructor() {
-
-        super();
-        this.reader = null;
-    }
 
     async *read() {
 
@@ -104,26 +104,6 @@ export class ZipEntryReader extends ZipEntry {
 
         for async (let chunk of stream)
             yield chunk;
-    }
-
-}
-
-export class ZipEntryWriter extends ZipEntry {
-
-    constructor(name) {
-
-        super();
-
-        this.name = name;
-        this.writer = null;
-
-        // Set appropriate defaults for directories
-        if (this.isDirectory) {
-
-            this.version = 10;
-            this.flags = 0;
-            this.method = STORED;
-        }
     }
 
     async write(input = []) {
@@ -211,4 +191,5 @@ export class ZipEntryWriter extends ZipEntry {
 
         return ZipDataDescriptor.fromEntry(this).write();
     }
+
 }

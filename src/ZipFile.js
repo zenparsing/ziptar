@@ -3,7 +3,7 @@ import { File } from "zen-fs";
 
 import { ZipEndHeader } from "./ZipEndHeader.js";
 import { ZipEntryHeader } from "./ZipEntryHeader.js";
-import { ZipEntryReader, ZipEntryWriter } from "./ZipEntry.js";
+import { ZipEntry } from "./ZipEntry.js";
 import { BufferWriter } from "./BufferWriter.js";
 import { BufferReader } from "./BufferReader.js";
 
@@ -107,7 +107,7 @@ export class ZipReader {
 
             buffer = buffer.slice(count);
 
-            let entry = new ZipEntryReader;
+            let entry = new ZipEntry;
 
             count = this._readEntryHeader(buffer, entry);
 
@@ -147,7 +147,7 @@ export class ZipWriter {
 
     createEntry(name) {
 
-        let entry = new ZipEntryWriter(name);
+        let entry = new ZipEntry(name);
         entry.writer = this.writer;
         this.entryList.push(entry);
 

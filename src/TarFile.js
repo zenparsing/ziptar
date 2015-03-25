@@ -13,7 +13,7 @@ import {
 
 import { TarExtended } from "./TarExtended.js";
 import { TarHeader } from "./TarHeader.js";
-import { TarEntryReader, TarEntryWriter } from "./TarEntry.js";
+import { TarEntry } from "./TarEntry.js";
 import { zeroFill, isZeroFilled, Options } from "./Utilities.js";
 
 export class TarReader {
@@ -150,7 +150,7 @@ export class TarReader {
         }
 
         let header = TarHeader.fromBuffer(block),
-            entry = new TarEntryReader;
+            entry = new TarEntry;
 
         // Copy properties from the header
         Object.keys(header).forEach(k => entry[k] = header[k]);
@@ -176,12 +176,11 @@ export class TarWriter {
 
             try {
 
+                // TODO:  If we throw here, then somehow this.stream.next calls
+                // never resolve.  Figure out why, and what the solution should be.
+
                 for async (let chunk of source)
                     await writer.write(chunk);
-
-            } catch (x) {
-
-                console.log(x.stack);
 
             } finally {
 
@@ -201,7 +200,7 @@ export class TarWriter {
 
     createEntry(name) {
 
-        let entry = new TarEntryWriter(name);
+        let entry = new TarEntry(name);
         entry.stream = this.stream;
         return entry;
     }
