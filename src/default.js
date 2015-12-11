@@ -111,7 +111,7 @@ async function extractArchive(archive, dest) {
     // Create the destination directory
     await Directory.create(dest);
 
-    for async (let entry of archive.entries()) {
+    for await (let entry of archive.entries()) {
 
         let outPath = Path.join(dest, entry.name);
 

@@ -136,7 +136,7 @@ export class TarReader {
 
         // Completely read current entry before advancing
         if (this.current)
-            for async (block of this.current.read());
+            for await (block of this.current.read());
 
         while (true) {
 
@@ -172,14 +172,14 @@ export class TarWriter {
         if (options.zip)
             source = source::gzip()::pumpBytes();
 
-        this.done = (async $=> {
+        this.done = (async _=> {
 
             try {
 
                 // TODO:  If we throw here, then somehow this.stream.next calls
                 // never resolve.  Figure out why, and what the solution should be.
 
-                for async (let chunk of source)
+                for await (let chunk of source)
                     await writer.write(chunk);
 
             } finally {
@@ -193,8 +193,8 @@ export class TarWriter {
     async close() {
 
         // Tar archive ends with two zero-filled blocks
-        this.stream.next(zeroFill(1024));
-        this.stream.return();
+        await this.stream.next(zeroFill(1024));
+        await this.stream.return();
         await this.done;
     }
 
@@ -212,4 +212,3 @@ export class TarWriter {
     }
 
 }
-

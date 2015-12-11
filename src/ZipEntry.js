@@ -87,7 +87,7 @@ export class ZipEntry {
 
             let crc = new Crc32;
 
-            for async (let buffer of this) {
+            for await (let buffer of this) {
 
                 crc.accumulate(buffer);
                 yield buffer;
@@ -102,7 +102,7 @@ export class ZipEntry {
         if (compressed)
             stream = stream::inflateRaw()::pumpBytes()::validateCRC(this.crc32);
 
-        for async (let chunk of stream)
+        for await (let chunk of stream)
             yield chunk;
     }
 
@@ -150,7 +150,7 @@ export class ZipEntry {
         if (compressed)
             stream = stream::deflateRaw()::pumpBytes();
 
-        for async (let chunk of stream) {
+        for await (let chunk of stream) {
 
             // Record the size of the compressed data
             this.compressedSize += chunk.length;

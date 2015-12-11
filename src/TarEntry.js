@@ -88,11 +88,11 @@ export class TarEntry {
             fillBytes = fillLength(remaining);
 
         // Read data blocks
-        for async (let chunk of this.stream::limitBytes(remaining)::pumpBytes())
+        for await (let chunk of this.stream::limitBytes(remaining)::pumpBytes())
             yield chunk;
 
         // Read past block padding
-        for async (let chunk of this.stream::limitBytes(fillBytes)::pumpBytes());
+        for await (let chunk of this.stream::limitBytes(fillBytes)::pumpBytes());
     }
 
     async write(input = []) {
@@ -116,7 +116,7 @@ export class TarEntry {
         let remaining = NO_SIZE[this.type] ? 0 : this.size;
         remaining += fillLength(remaining);
 
-        for async (let chunk of input) {
+        for await (let chunk of input) {
 
             remaining -= chunk.length;
 
