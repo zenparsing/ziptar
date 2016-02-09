@@ -32,10 +32,9 @@ export async function unzip(source, dest, options) {
     return extractArchive(await ZipReader.open(source, options), dest);
 }
 
-export async function extract(source, dest) {
+async function getReader(source) {
 
     source = Path.resolve(source);
-    dest = dest ? Path.resolve(dest) : Path.dirname(source);
 
     let reader;
 
@@ -58,7 +57,28 @@ export async function extract(source, dest) {
             throw new Error("Unknown file type");
     }
 
-    return extractArchive(reader, dest);
+    return reader;
+}
+
+export async function extract(source, dest) {
+
+    source = Path.resolve(source);
+    dest = dest ? Path.resolve(dest) : Path.dirname(source);
+
+    return extractArchive(await getReader(source), dest);
+}
+
+export async function listEntries(source) {
+
+    let reader = await getReader(source),
+        entries = [];
+
+    for await (let entry of reader.entries())
+        entries.push(entry);
+
+    await reader.close();
+
+    return entries;
 }
 
 async function createArchive(archive, list) {

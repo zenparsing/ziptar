@@ -7,25 +7,25 @@ import {
     gunzip,
     gzip,
     sinkSource,
-    forEach,
 
 } from "streamware";
 
 import { TarExtended } from "./TarExtended.js";
 import { TarHeader } from "./TarHeader.js";
 import { TarEntry } from "./TarEntry.js";
-import { zeroFill, isZeroFilled, Options } from "./Utilities.js";
+import { zeroFill, isZeroFilled } from "./Utilities.js";
 
 export class TarReader {
 
     constructor(stream, options = {}) {
 
-        this.stream = stream;
         this.attributes = {};
         this.current = null;
 
         if (options.unzip)
-            this.stream = this.stream::pumpBytes()::gunzip();
+            stream = stream::pumpBytes()::gunzip();
+
+        this.stream = stream;
     }
 
     async close() {
@@ -94,16 +94,18 @@ export class TarReader {
 
     async _readString(entry) {
 
-        let stream = entry.read();
-        let data = (await stream.next(new Buffer(entry.size))).value;
-        return data.toString("utf8").replace(/\x00/g, "");
+        let text = "";
+
+        for await (let block of entry.read())
+            text += block.toString("utf8").replace(/\x00/g, "");
+
+        return text;
     }
 
     async _readAttributes(entry, fields) {
 
-        let stream = entry.read();
-        let data = (await stream.next(new Buffer(entry.size))).value;
-        return TarExtended.read(data, fields);
+        for await (let block of entry.read())
+            TarExtended.read(block, fields);
     }
 
     _copyAttributes(fields, entry) {
