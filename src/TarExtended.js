@@ -34,11 +34,11 @@ export class TarExtended {
 
     static read(buffer, fields = {}) {
 
-        let pos = 0;
+        let pos = 0, next;
 
         while (pos < buffer.length) {
 
-            let next = pos + readLength();
+            next = pos + readLength();
             tryRead(SPACE);
 
             let key = readKey();
