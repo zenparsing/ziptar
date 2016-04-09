@@ -42,6 +42,7 @@ export class TarEntry {
         this.reading = false;
 
         this.stream = null;
+        this.writer = null;
 
         if (this.name.endsWith("/")) {
 
@@ -97,7 +98,7 @@ export class TarEntry {
 
     async write(input = []) {
 
-        if (!this.stream)
+        if (!this.writer)
             throw new Error("No output stream");
 
         let header = TarHeader.fromEntry(this),
@@ -111,7 +112,7 @@ export class TarEntry {
             await this._writeExtended(extended);
 
         // Write the entry header
-        await this.stream.next(header.write());
+        await this.writer.write(header.write());
 
         let remaining = NO_SIZE[this.type] ? 0 : this.size;
         remaining += fillLength(remaining);
@@ -123,7 +124,7 @@ export class TarEntry {
             if (remaining < 0)
                 throw new Error("Invalid entry length");
 
-            await this.stream.next(chunk);
+            await this.writer.write(chunk);
         }
 
         if (remaining > 0) {
@@ -133,7 +134,7 @@ export class TarEntry {
             while (remaining > 0) {
 
                 let data = remaining < empty.length ? empty.slice(0, remaining) : empty;
-                await this.stream.next(data);
+                await this.writer.write(data);
                 remaining -= data.length;
             }
         }
@@ -151,10 +152,10 @@ export class TarEntry {
         }
 
         let data = TarExtended.write(fields),
-            entry = new TarEntryWriter("PaxExtended/" + this.name);
+            entry = new TarEntry("PaxExtended/" + this.name);
 
         entry.type = "extended-attributes";
-        entry.stream = this.stream;
+        entry.writer = this.writer;
         entry.size = data.length;
 
         await entry.write([data]);

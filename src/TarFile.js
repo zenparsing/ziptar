@@ -6,7 +6,7 @@ import {
     pumpBytes,
     gunzip,
     gzip,
-    sinkSource,
+    Writer,
 
 } from "streamware";
 
@@ -167,43 +167,34 @@ export class TarWriter {
 
     constructor(writer, options = {}) {
 
-        let { sink, source } = sinkSource();
+        this.writer = new Writer(async data => {
 
-        this.stream = sink;
-
-        if (options.zip)
-            source = source::gzip()::pumpBytes();
-
-        this.done = (async _=> {
+            if (options.zip)
+                data = data::gzip()::pumpBytes();
 
             try {
 
-                // TODO:  If we throw here, then somehow this.stream.next calls
-                // never resolve.  Figure out why, and what the solution should be.
-
-                for await (let chunk of source)
+                for await (let chunk of data)
                     await writer.write(chunk);
 
             } finally {
 
                 await writer.close();
             }
-
-        })();
+        });
     }
 
     async close() {
 
         // Tar archive ends with two zero-filled blocks
-        await this.stream.next(zeroFill(1024));
-        await this.stream.return();
-        await this.done;
+        await this.writer.write(zeroFill(1024));
+        await this.writer.close();
     }
 
     createEntry(name) {
 
         let entry = new TarEntry(name);
-        entry.stream = this.stream;
+        entry.writer = this.writer;
         return entry;
     }
 
